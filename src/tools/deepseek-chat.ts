@@ -1,6 +1,6 @@
 /**
  * Tool: deepseek_chat
- * Chat completion with DeepSeek models
+ * Chat completion with DeepSeek models (V3.2)
  */
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -12,6 +12,7 @@ import {
   ChatInputWithToolsSchema,
   ToolDefinitionSchema,
   ToolChoiceSchema,
+  ThinkingSchema,
 } from '../schemas.js';
 import type { DeepSeekClient } from '../deepseek-client.js';
 import type { DeepSeekChatInput } from '../types.js';
@@ -35,10 +36,10 @@ export function registerChatTool(server: McpServer, client: DeepSeekClient): voi
     {
       title: 'DeepSeek Chat Completion',
       description:
-        'Chat with DeepSeek AI models. Supports deepseek-chat for general conversations and ' +
-        'deepseek-reasoner (R1) for complex reasoning tasks with chain-of-thought explanations. ' +
-        'Supports function calling via the tools parameter for structured tool use. ' +
-        'The reasoner model provides both reasoning_content (thinking process) and content (final answer).',
+        'Chat with DeepSeek V3.2 AI models. Supports deepseek-chat for general conversations and ' +
+        'deepseek-reasoner for complex reasoning tasks with chain-of-thought explanations. ' +
+        'Features: function calling (tools parameter), thinking mode for enhanced reasoning, ' +
+        'JSON output mode, and automatic cost tracking with cache hit/miss breakdown.',
       inputSchema: {
         messages: z
           .array(ExtendedMessageSchema)
@@ -50,20 +51,20 @@ export function registerChatTool(server: McpServer, client: DeepSeekClient): voi
           .enum(['deepseek-chat', 'deepseek-reasoner'])
           .default('deepseek-chat')
           .describe(
-            'Model to use. deepseek-chat for general tasks, deepseek-reasoner for complex reasoning'
+            'Model to use. Both run DeepSeek V3.2 (128K context). deepseek-chat: non-thinking mode (max 8K output), deepseek-reasoner: thinking mode (max 64K output)'
           ),
         temperature: z
           .number()
           .min(0)
           .max(2)
           .optional()
-          .describe('Sampling temperature (0-2). Higher = more random. Default: 1.0'),
+          .describe('Sampling temperature (0-2). Higher = more random. Default: 1.0. Ignored when thinking mode is enabled.'),
         max_tokens: z
           .number()
           .min(1)
-          .max(32768)
+          .max(65536)
           .optional()
-          .describe('Maximum tokens to generate. Default: model maximum'),
+          .describe('Maximum tokens to generate. deepseek-chat: max 8192, deepseek-reasoner: max 65536'),
         stream: z
           .boolean()
           .optional()
@@ -81,6 +82,15 @@ export function registerChatTool(server: McpServer, client: DeepSeekClient): voi
         tool_choice: ToolChoiceSchema.optional().describe(
           'Controls which tool the model calls. "auto" (default), "none", "required", or {type:"function",function:{name:"..."}}'
         ),
+        thinking: ThinkingSchema.describe(
+          'Enable thinking mode for enhanced reasoning. When enabled, temperature/top_p/frequency_penalty/presence_penalty are automatically ignored. Use {type: "enabled"} to activate.'
+        ),
+        json_mode: z
+          .boolean()
+          .optional()
+          .describe(
+            'Enable JSON output mode. The model will output valid JSON. Include the word "json" in your prompt for best results. Supported by both models.'
+          ),
       },
       outputSchema: {
         content: z.string(),
@@ -90,6 +100,8 @@ export function registerChatTool(server: McpServer, client: DeepSeekClient): voi
           prompt_tokens: z.number(),
           completion_tokens: z.number(),
           total_tokens: z.number(),
+          prompt_cache_hit_tokens: z.number().optional(),
+          prompt_cache_miss_tokens: z.number().optional(),
         }),
         finish_reason: z.string(),
         tool_calls: z
@@ -114,28 +126,54 @@ export function registerChatTool(server: McpServer, client: DeepSeekClient): voi
         // Validate input with extended schema (supports tools)
         const validated = ChatInputWithToolsSchema.parse(input);
 
+        // JSON mode guard: warn if "json" word is not in any message content
+        if (validated.json_mode) {
+          const hasJsonWord = validated.messages.some((m) =>
+            m.content.toLowerCase().includes('json')
+          );
+          if (!hasJsonWord) {
+            console.error(
+              '[DeepSeek MCP] Warning: json_mode enabled but no "json" word found in messages. Results may be unreliable.'
+            );
+          }
+        }
+
+        // Model-aware max_tokens warnings
+        if (validated.max_tokens) {
+          if (validated.model === 'deepseek-chat' && validated.max_tokens > 8192) {
+            console.error(
+              `[DeepSeek MCP] Warning: deepseek-chat max output is 8192 tokens, requested ${validated.max_tokens}. API may truncate.`
+            );
+          }
+          if (validated.model === 'deepseek-reasoner' && validated.max_tokens > 65536) {
+            console.error(
+              `[DeepSeek MCP] Warning: deepseek-reasoner max output is 65536 tokens, requested ${validated.max_tokens}. API may truncate.`
+            );
+          }
+        }
+
         console.error(
-          `[DeepSeek MCP] Request: model=${validated.model}, messages=${validated.messages.length}, stream=${validated.stream}${validated.tools ? `, tools=${validated.tools.length}` : ''}`
+          `[DeepSeek MCP] Request: model=${validated.model}, messages=${validated.messages.length}, stream=${validated.stream}${validated.tools ? `, tools=${validated.tools.length}` : ''}${validated.thinking ? `, thinking=${validated.thinking.type}` : ''}${validated.json_mode ? ', json_mode=true' : ''}`
         );
+
+        // Build params for client
+        const clientParams = {
+          model: validated.model,
+          messages: validated.messages,
+          temperature: validated.temperature,
+          max_tokens: validated.max_tokens,
+          tools: validated.tools,
+          tool_choice: validated.tool_choice,
+          thinking: validated.thinking,
+          response_format: validated.json_mode
+            ? ({ type: 'json_object' } as const)
+            : undefined,
+        };
 
         // Call appropriate method based on stream parameter
         const response = validated.stream
-          ? await client.createStreamingChatCompletion({
-              model: validated.model,
-              messages: validated.messages,
-              temperature: validated.temperature,
-              max_tokens: validated.max_tokens,
-              tools: validated.tools,
-              tool_choice: validated.tool_choice,
-            })
-          : await client.createChatCompletion({
-              model: validated.model,
-              messages: validated.messages,
-              temperature: validated.temperature,
-              max_tokens: validated.max_tokens,
-              tools: validated.tools,
-              tool_choice: validated.tool_choice,
-            });
+          ? await client.createStreamingChatCompletion(clientParams)
+          : await client.createChatCompletion(clientParams);
 
         console.error(
           `[DeepSeek MCP] Response: tokens=${response.usage.total_tokens}, finish_reason=${response.finish_reason}${response.tool_calls ? `, tool_calls=${response.tool_calls.length}` : ''}`
@@ -162,18 +200,14 @@ export function registerChatTool(server: McpServer, client: DeepSeekClient): voi
         }
 
         // Calculate cost
-        const cost = calculateCost(
-          response.usage.prompt_tokens,
-          response.usage.completion_tokens,
-          response.model
-        );
+        const costBreakdown = calculateCost(response.usage);
 
         // Add usage stats with cost information (controlled by config)
         if (getConfig().showCostInfo) {
           responseText += `\n---\n**Request Information:**\n`;
           responseText += `- **Tokens:** ${response.usage.total_tokens} (${response.usage.prompt_tokens} prompt + ${response.usage.completion_tokens} completion)\n`;
           responseText += `- **Model:** ${response.model}\n`;
-          responseText += `- **Cost:** ${formatCost(cost)}`;
+          responseText += `- **Cost:** ${formatCost(costBreakdown)}`;
           if (response.tool_calls?.length) {
             responseText += `\n- **Tool Calls:** ${response.tool_calls.length}`;
           }
@@ -188,7 +222,7 @@ export function registerChatTool(server: McpServer, client: DeepSeekClient): voi
           ],
           structuredContent: {
             ...response,
-            cost_usd: parseFloat(cost.toFixed(6)),
+            cost_usd: parseFloat(costBreakdown.totalCost.toFixed(6)),
           } as unknown as Record<string, unknown>,
         };
       } catch (error: unknown) {

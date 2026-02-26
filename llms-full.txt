@@ -1,6 +1,6 @@
 # DeepSeek MCP Server - Complete Documentation
 
-A Model Context Protocol (MCP) server that integrates DeepSeek AI models with MCP-compatible clients like Claude Code and Gemini CLI. Provides chat completion, function calling, cost tracking, and 12 prompt templates via a single `deepseek_chat` tool.
+A Model Context Protocol (MCP) server that integrates DeepSeek V3.2 AI models with MCP-compatible clients like Claude Code and Gemini CLI. Provides chat completion, thinking mode, JSON output, function calling, cache-aware cost tracking, and 12 prompt templates via a single `deepseek_chat` tool.
 
 ## Installation
 
@@ -19,16 +19,21 @@ Get API key: https://platform.deepseek.com
 
 ## Models
 
+Both models run DeepSeek-V3.2 with unified pricing.
+
 ### deepseek-chat
 - General conversations, coding, content generation
-- Fast, 64K context, most economical
-- Pricing: $0.14/1M prompt + $0.28/1M completion tokens
+- Non-thinking mode (can enable thinking via parameter)
+- 128K context, 8K max output (default 4K)
+- Supports thinking mode, JSON mode, function calling, FIM completion
+- Pricing: $0.028/1M cache hit, $0.28/1M cache miss, $0.42/1M output
 
-### deepseek-reasoner (R1)
+### deepseek-reasoner
 - Complex reasoning, math, logic, multi-step tasks
-- Shows chain-of-thought in reasoning_content field
-- 64K context
-- Pricing: $0.55/1M prompt + $2.19/1M completion tokens
+- Thinking mode (always active), shows chain-of-thought in reasoning_content
+- 128K context, 64K max output (default 32K)
+- Supports JSON mode, function calling
+- Pricing: $0.028/1M cache hit, $0.28/1M cache miss, $0.42/1M output
 
 ## Tool: deepseek_chat
 
@@ -38,11 +43,41 @@ Get API key: https://platform.deepseek.com
 |-----------|------|----------|---------|-------------|
 | messages | Array<{role, content, tool_call_id?}> | Yes | - | Conversation messages. Roles: system, user, assistant, tool |
 | model | "deepseek-chat" \| "deepseek-reasoner" | No | "deepseek-chat" | Model to use |
-| temperature | number (0-2) | No | 1.0 | Sampling temperature |
-| max_tokens | number (1-32768) | No | model max | Maximum tokens to generate |
+| temperature | number (0-2) | No | 1.0 | Sampling temperature. Ignored when thinking enabled |
+| max_tokens | number (1-65536) | No | model max | Max tokens: chat=8192, reasoner=65536. Both have 128K context |
 | stream | boolean | No | false | Enable streaming mode |
 | tools | Array<ToolDefinition> (max 128) | No | - | Function calling tool definitions |
 | tool_choice | "auto" \| "none" \| "required" \| {type, function} | No | "auto" | Which tool to call |
+| thinking | {type: "enabled" \| "disabled"} | No | - | Enable thinking mode for enhanced reasoning |
+| json_mode | boolean | No | false | Enable JSON output mode (supported by both models) |
+
+### Thinking Mode
+
+Enable enhanced reasoning on deepseek-chat:
+
+```json
+{
+  "messages": [{"role": "user", "content": "Analyze quicksort complexity"}],
+  "model": "deepseek-chat",
+  "thinking": {"type": "enabled"}
+}
+```
+
+When enabled, temperature/top_p/frequency_penalty/presence_penalty are automatically ignored with a logged warning. deepseek-reasoner has implicit thinking (always active).
+
+### JSON Output Mode
+
+Get structured JSON responses:
+
+```json
+{
+  "messages": [{"role": "user", "content": "Return a json object with user data"}],
+  "model": "deepseek-chat",
+  "json_mode": true
+}
+```
+
+Include the word "json" in your prompt for best results. Supported by both models.
 
 ### Tool Definition Format
 
@@ -73,7 +108,9 @@ Get API key: https://platform.deepseek.com
   "usage": {
     "prompt_tokens": 10,
     "completion_tokens": 20,
-    "total_tokens": 30
+    "total_tokens": 30,
+    "prompt_cache_hit_tokens": 8,
+    "prompt_cache_miss_tokens": 2
   },
   "finish_reason": "stop",
   "tool_calls": [
@@ -110,6 +147,17 @@ Example:
   }]
 }
 ```
+
+## Cost Tracking
+
+V3.2 provides cache-aware pricing. Cost display shows:
+- Total cost in USD
+- Cache hit ratio (percentage of prompt tokens served from cache)
+- Estimated savings from cache hits
+
+Example output: `$0.0042 (cache hit: 80%, saved ~$0.0168)`
+
+If the API doesn't return cache fields (older responses), all input is treated as cache miss — no breaking change.
 
 ## Configuration (Environment Variables)
 
@@ -151,7 +199,7 @@ src/
   server.ts             # McpServer factory (version from package.json)
   deepseek-client.ts    # DeepSeek API wrapper (OpenAI SDK)
   config.ts             # Zod-validated config from env vars
-  cost.ts               # Cost calculation per model
+  cost.ts               # V3.2 cache-aware cost calculation
   schemas.ts            # Zod input validation schemas
   types.ts              # TypeScript types + type guards
   errors.ts             # Custom error classes (ConfigError, ApiError, etc.)
@@ -171,7 +219,7 @@ src/
 - @modelcontextprotocol/sdk for MCP protocol
 - OpenAI SDK for API compatibility
 - Zod for validation
-- Vitest for testing (126 tests)
+- Vitest for testing (150 tests)
 - Node.js 18+
 
 ## Links

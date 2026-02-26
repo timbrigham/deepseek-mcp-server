@@ -16,6 +16,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Nothing yet
 
+## [1.2.0] - 2026-02-26
+
+### Added
+- **Thinking Mode**: Enable enhanced reasoning on deepseek-chat with `thinking: {type: "enabled"}` parameter. Automatically filters incompatible params (temperature, top_p, etc.) with logged warnings.
+- **JSON Output Mode**: Structured JSON responses with `json_mode: true`. Supported by both models. Warns if "json" word missing from prompt.
+- **Cache-Aware Cost Tracking**: V3.2 API returns `prompt_cache_hit_tokens` and `prompt_cache_miss_tokens`. Cost display now shows cache hit ratio and savings.
+- **CostBreakdown Interface**: `calculateCost()` returns structured `{inputCost, outputCost, totalCost, cacheHitRatio?, cacheSavings?}` instead of flat number.
+
+### Changed
+- **DeepSeek V3.2 Pricing**: Unified pricing for both models — cache hit $0.028/1M, cache miss $0.28/1M, output $0.42/1M (replaces old per-model pricing).
+- **max_tokens Limit**: Updated from 32768 to 65536 (reasoner max). Model-specific warnings: deepseek-chat warns above 8192, deepseek-reasoner warns above 65536.
+- **Tool Description**: Updated to mention V3.2, thinking mode, JSON mode, and cache-aware cost tracking.
+- **150 Tests**: Up from 126, covering thinking mode, JSON mode, cache tokens, and cost breakdown.
+
+### Fixed
+- **Incorrect Cost Reports**: Old flat pricing ($0.14/$0.28 chat, $0.55/$2.19 reasoner) replaced with accurate V3.2 unified pricing.
+
 ## [1.1.1] - 2026-02-11
 
 ### Added
@@ -154,6 +171,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
+- **1.2.0** (2026-02-26): DeepSeek V3.2 support — thinking mode, JSON mode, cache-aware pricing, 150 tests
 - **1.1.1** (2026-02-11): Modular architecture, type safety, security fixes, 126 tests
 - **1.1.0** (2026-02-10): Function calling, config system, test suite
 - **1.0.3** (2025-02-07): Cost tracking and prompt templates
@@ -166,7 +184,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [GitHub repository](https://github.com/arikusi/deepseek-mcp-server)
 - [Issue tracker](https://github.com/arikusi/deepseek-mcp-server/issues)
 
-[Unreleased]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.0.3...v1.1.0
 [1.0.3]: https://github.com/arikusi/deepseek-mcp-server/releases/tag/v1.0.3

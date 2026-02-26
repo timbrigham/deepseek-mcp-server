@@ -16,6 +16,14 @@ import type {
 } from './types.js';
 import { hasReasoningContent, getErrorMessage } from './types.js';
 
+/** Parameters that are incompatible with thinking mode */
+const THINKING_INCOMPATIBLE_PARAMS = [
+  'temperature',
+  'top_p',
+  'frequency_penalty',
+  'presence_penalty',
+] as const;
+
 export class DeepSeekClient {
   private client: OpenAI;
 
@@ -36,18 +44,48 @@ export class DeepSeekClient {
   private buildRequestParams(
     params: ChatCompletionParams,
     stream: boolean
-  ): OpenAI.ChatCompletionCreateParams {
-    const requestParams: OpenAI.ChatCompletionCreateParams = {
+  ): OpenAI.ChatCompletionCreateParams & { extra_body?: Record<string, unknown> } {
+    const isThinkingEnabled = params.thinking?.type === 'enabled';
+
+    // Filter incompatible params when thinking mode is active
+    if (isThinkingEnabled) {
+      const filtered: string[] = [];
+      for (const key of THINKING_INCOMPATIBLE_PARAMS) {
+        if (params[key] !== undefined) {
+          filtered.push(key);
+        }
+      }
+      if (filtered.length > 0) {
+        console.error(
+          `[DeepSeek MCP] Warning: Thinking mode active, ignoring incompatible params: ${filtered.join(', ')}`
+        );
+      }
+    }
+
+    const requestParams: OpenAI.ChatCompletionCreateParams & { extra_body?: Record<string, unknown> } = {
       model: params.model,
       messages: params.messages as OpenAI.ChatCompletionMessageParam[],
-      temperature: params.temperature ?? 1.0,
+      temperature: isThinkingEnabled ? undefined : (params.temperature ?? 1.0),
       max_tokens: params.max_tokens,
-      top_p: params.top_p,
-      frequency_penalty: params.frequency_penalty,
-      presence_penalty: params.presence_penalty,
+      top_p: isThinkingEnabled ? undefined : params.top_p,
+      frequency_penalty: isThinkingEnabled ? undefined : params.frequency_penalty,
+      presence_penalty: isThinkingEnabled ? undefined : params.presence_penalty,
       stop: params.stop,
       stream,
     };
+
+    // Pass thinking config via extra_body (DeepSeek extension)
+    if (params.thinking) {
+      requestParams.extra_body = {
+        ...requestParams.extra_body,
+        thinking: params.thinking,
+      };
+    }
+
+    // Pass response_format for JSON mode
+    if (params.response_format) {
+      requestParams.response_format = params.response_format as OpenAI.ChatCompletionCreateParams['response_format'];
+    }
 
     if (params.tools?.length) {
       requestParams.tools = params.tools as OpenAI.ChatCompletionTool[];
@@ -110,6 +148,8 @@ export class DeepSeekClient {
           prompt_tokens: response.usage?.prompt_tokens || 0,
           completion_tokens: response.usage?.completion_tokens || 0,
           total_tokens: response.usage?.total_tokens || 0,
+          prompt_cache_hit_tokens: response.usage?.prompt_cache_hit_tokens,
+          prompt_cache_miss_tokens: response.usage?.prompt_cache_miss_tokens,
         },
         finish_reason: choice.finish_reason || 'stop',
         tool_calls: tool_calls?.length ? tool_calls : undefined,
@@ -135,7 +175,7 @@ export class DeepSeekClient {
       let reasoningContent = '';
       let modelName: string = params.model;
       let finishReason = 'stop';
-      let usage = {
+      let usage: ChatCompletionResponse['usage'] = {
         prompt_tokens: 0,
         completion_tokens: 0,
         total_tokens: 0,
@@ -200,7 +240,13 @@ export class DeepSeekClient {
 
         // Get usage info (usually in last chunk)
         if (chunk.usage) {
-          usage = chunk.usage;
+          usage = {
+            prompt_tokens: chunk.usage.prompt_tokens,
+            completion_tokens: chunk.usage.completion_tokens,
+            total_tokens: chunk.usage.total_tokens,
+            prompt_cache_hit_tokens: chunk.usage.prompt_cache_hit_tokens,
+            prompt_cache_miss_tokens: chunk.usage.prompt_cache_miss_tokens,
+          };
         }
       }
 

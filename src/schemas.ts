@@ -12,14 +12,20 @@ export const MessageSchema = z.object({
   content: z.string(),
 });
 
+export const ThinkingSchema = z
+  .object({ type: z.enum(['enabled', 'disabled']) })
+  .optional();
+
 export const ChatInputSchema = z.object({
   messages: z.array(MessageSchema).min(1),
   model: z
     .enum(['deepseek-chat', 'deepseek-reasoner'])
     .default('deepseek-chat'),
   temperature: z.number().min(0).max(2).optional(),
-  max_tokens: z.number().min(1).max(32768).optional(),
+  max_tokens: z.number().min(1).max(65536).optional(),
   stream: z.boolean().optional().default(false),
+  thinking: ThinkingSchema,
+  json_mode: z.boolean().optional(),
 });
 
 // ─── Function Calling Schemas ───────────────────────────────────
@@ -58,8 +64,10 @@ export const ChatInputWithToolsSchema = z.object({
     .enum(['deepseek-chat', 'deepseek-reasoner'])
     .default('deepseek-chat'),
   temperature: z.number().min(0).max(2).optional(),
-  max_tokens: z.number().min(1).max(32768).optional(),
+  max_tokens: z.number().min(1).max(65536).optional(),
   stream: z.boolean().optional().default(false),
   tools: z.array(ToolDefinitionSchema).max(128).optional(),
   tool_choice: ToolChoiceSchema.optional(),
+  thinking: ThinkingSchema,
+  json_mode: z.boolean().optional(),
 });

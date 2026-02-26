@@ -48,14 +48,15 @@ That's it! Your MCP client can now use DeepSeek models!
 
 ## Features
 
-- **DeepSeek Chat**: Fast and capable general-purpose model
-- **DeepSeek Reasoner (R1)**: Advanced reasoning with chain-of-thought explanations
+- **DeepSeek V3.2**: Both models now run DeepSeek-V3.2 (since Sept 2025)
+- **Thinking Mode**: Enable enhanced reasoning on deepseek-chat with `thinking: {type: "enabled"}`
+- **JSON Output Mode**: Structured JSON responses with `json_mode: true`
 - **Function Calling**: OpenAI-compatible tool use with up to 128 tool definitions
-- **Cost Tracking**: Automatic cost calculation for every request (USD)
+- **Cache-Aware Cost Tracking**: Automatic cost calculation with cache hit/miss breakdown
 - **Configurable**: Environment-based configuration with validation
 - **12 Prompt Templates**: Pre-built templates for debugging, code review, function calling, and more
 - **Streaming Support**: Real-time response generation
-- **Tested**: 126 tests with 90%+ code coverage
+- **Tested**: 150 tests with 90%+ code coverage
 - **Type-Safe**: Full TypeScript implementation
 - **MCP Compatible**: Works with any MCP-compatible CLI (Claude Code, Gemini CLI, etc.)
 
@@ -142,11 +143,13 @@ Chat with DeepSeek AI models with automatic cost tracking and function calling s
   - `content`: Message text
   - `tool_call_id` (optional): Required for tool role messages
 - `model` (optional): "deepseek-chat" (default) or "deepseek-reasoner"
-- `temperature` (optional): 0-2, controls randomness (default: 1.0)
-- `max_tokens` (optional): Maximum tokens to generate
+- `temperature` (optional): 0-2, controls randomness (default: 1.0). Ignored when thinking mode is enabled.
+- `max_tokens` (optional): Maximum tokens to generate (deepseek-chat: max 8192, deepseek-reasoner: max 65536)
 - `stream` (optional): Enable streaming mode (default: false)
 - `tools` (optional): Array of tool definitions for function calling (max 128)
 - `tool_choice` (optional): "auto" | "none" | "required" | `{type: "function", function: {name: "..."}}`
+- `thinking` (optional): Enable thinking mode `{type: "enabled"}` for enhanced reasoning
+- `json_mode` (optional): Enable JSON output mode (supported by both models)
 
 **Response includes:**
 - Content with formatting
@@ -221,6 +224,40 @@ The reasoner model will show its thinking process in `<thinking>` tags followed 
 
 When the model decides to call a function, the response includes `tool_calls` with the function name and arguments. You can then send the result back using a `tool` role message with the matching `tool_call_id`.
 
+**Thinking Mode Example:**
+
+```json
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "Analyze the time complexity of quicksort"
+    }
+  ],
+  "model": "deepseek-chat",
+  "thinking": { "type": "enabled" }
+}
+```
+
+When thinking mode is enabled, `temperature`, `top_p`, `frequency_penalty`, and `presence_penalty` are automatically ignored. The model provides enhanced reasoning capabilities similar to deepseek-reasoner.
+
+**JSON Output Mode Example:**
+
+```json
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "Return a json object with name, age, and city fields for a sample user"
+    }
+  ],
+  "model": "deepseek-chat",
+  "json_mode": true
+}
+```
+
+JSON mode ensures the model outputs valid JSON. Include the word "json" in your prompt for best results. Supported by both `deepseek-chat` and `deepseek-reasoner`.
+
 ## Available Prompts
 
 Pre-built prompt templates for common tasks (12 total):
@@ -247,20 +284,28 @@ Each prompt is optimized for the DeepSeek Reasoner model to provide detailed rea
 
 ## Models
 
+Both models run **DeepSeek-V3.2** with unified pricing.
+
 ### deepseek-chat
 
 - **Best for**: General conversations, coding, content generation
 - **Speed**: Fast
-- **Context**: 64K tokens
-- **Cost**: Most economical
+- **Context**: 128K tokens
+- **Max Output**: 8K tokens (default 4K)
+- **Mode**: Non-thinking (can enable thinking via parameter)
+- **Features**: Thinking mode, JSON mode, function calling, FIM completion
+- **Pricing**: $0.028/1M cache hit, $0.28/1M cache miss, $0.42/1M output
 
-### deepseek-reasoner (R1)
+### deepseek-reasoner
 
 - **Best for**: Complex reasoning, math, logic problems, multi-step tasks
 - **Speed**: Slower (shows thinking process)
-- **Context**: 64K tokens
-- **Special**: Provides chain-of-thought reasoning
+- **Context**: 128K tokens
+- **Max Output**: 64K tokens (default 32K)
+- **Mode**: Thinking (always active, chain-of-thought reasoning)
+- **Features**: JSON mode, function calling
 - **Output**: Both reasoning process and final answer
+- **Pricing**: $0.028/1M cache hit, $0.28/1M cache miss, $0.42/1M output
 
 ## Configuration
 

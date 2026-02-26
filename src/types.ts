@@ -79,6 +79,8 @@ export interface ChatCompletionParams {
   stop?: string | string[];
   tools?: ToolDefinition[];
   tool_choice?: ToolChoice;
+  thinking?: { type: 'enabled' | 'disabled' };
+  response_format?: { type: 'json_object' };
 }
 
 /**
@@ -92,6 +94,8 @@ export interface ChatCompletionResponse {
     prompt_tokens: number;
     completion_tokens: number;
     total_tokens: number;
+    prompt_cache_hit_tokens?: number;
+    prompt_cache_miss_tokens?: number;
   };
   finish_reason: string;
   tool_calls?: ToolCall[];
@@ -124,6 +128,8 @@ export interface DeepSeekChatInput {
     | 'none'
     | 'required'
     | { type: 'function'; function: { name: string } };
+  thinking?: { type: 'enabled' | 'disabled' };
+  json_mode?: boolean;
 }
 
 /**
@@ -173,6 +179,8 @@ export interface DeepSeekRawResponse {
     prompt_tokens: number;
     completion_tokens: number;
     total_tokens: number;
+    prompt_cache_hit_tokens?: number;
+    prompt_cache_miss_tokens?: number;
   };
 }
 
@@ -203,6 +211,8 @@ export interface DeepSeekStreamChunk {
     prompt_tokens: number;
     completion_tokens: number;
     total_tokens: number;
+    prompt_cache_hit_tokens?: number;
+    prompt_cache_miss_tokens?: number;
   };
 }
 

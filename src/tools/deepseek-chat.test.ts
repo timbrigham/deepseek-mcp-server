@@ -197,4 +197,124 @@ describe('tools/deepseek-chat', () => {
 
     mockError.mockRestore();
   });
+
+  it('should accept json_mode with deepseek-reasoner', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [
+        {
+          message: { content: '{"result": true}', tool_calls: undefined },
+          finish_reason: 'stop',
+        },
+      ],
+      model: 'deepseek-reasoner',
+      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+    });
+
+    const { DeepSeekClient } = await import('../deepseek-client.js');
+    const client = new DeepSeekClient();
+    registerChatTool(mockServer as any, client);
+
+    const handler = mockServer.tools.get('deepseek_chat')!.handler;
+    const result = await handler({
+      messages: [{ role: 'user', content: 'Return json output' }],
+      model: 'deepseek-reasoner',
+      json_mode: true,
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(result.content[0].text).toContain('{"result": true}');
+  });
+
+  it('should pass thinking param to client', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [
+        {
+          message: { content: 'Thought result', tool_calls: undefined },
+          finish_reason: 'stop',
+        },
+      ],
+      model: 'deepseek-chat',
+      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+    });
+
+    const { DeepSeekClient } = await import('../deepseek-client.js');
+    const client = new DeepSeekClient();
+    registerChatTool(mockServer as any, client);
+
+    const handler = mockServer.tools.get('deepseek_chat')!.handler;
+    const result = await handler({
+      messages: [{ role: 'user', content: 'Think about this' }],
+      model: 'deepseek-chat',
+      thinking: { type: 'enabled' },
+    });
+
+    expect(result.content[0].text).toContain('Thought result');
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        extra_body: { thinking: { type: 'enabled' } },
+      })
+    );
+  });
+
+  it('should pass json_mode as response_format to client', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [
+        {
+          message: { content: '{"key":"value"}', tool_calls: undefined },
+          finish_reason: 'stop',
+        },
+      ],
+      model: 'deepseek-chat',
+      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+    });
+
+    const { DeepSeekClient } = await import('../deepseek-client.js');
+    const client = new DeepSeekClient();
+    registerChatTool(mockServer as any, client);
+
+    const handler = mockServer.tools.get('deepseek_chat')!.handler;
+    const result = await handler({
+      messages: [{ role: 'user', content: 'Return json output' }],
+      model: 'deepseek-chat',
+      json_mode: true,
+    });
+
+    expect(result.content[0].text).toContain('{"key":"value"}');
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        response_format: { type: 'json_object' },
+      })
+    );
+  });
+
+  it('should show cache info in cost display', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [
+        {
+          message: { content: 'Hello!', tool_calls: undefined },
+          finish_reason: 'stop',
+        },
+      ],
+      model: 'deepseek-chat',
+      usage: {
+        prompt_tokens: 1000,
+        completion_tokens: 500,
+        total_tokens: 1500,
+        prompt_cache_hit_tokens: 800,
+        prompt_cache_miss_tokens: 200,
+      },
+    });
+
+    const { DeepSeekClient } = await import('../deepseek-client.js');
+    const client = new DeepSeekClient();
+    registerChatTool(mockServer as any, client);
+
+    const handler = mockServer.tools.get('deepseek_chat')!.handler;
+    const result = await handler({
+      messages: [{ role: 'user', content: 'Hi' }],
+      model: 'deepseek-chat',
+    });
+
+    expect(result.content[0].text).toContain('cache hit: 80%');
+  });
 });

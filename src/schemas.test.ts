@@ -7,6 +7,7 @@ import {
   ToolChoiceSchema,
   ChatInputWithToolsSchema,
   FunctionDefinitionSchema,
+  ThinkingSchema,
 } from './schemas.js';
 
 describe('schemas', () => {
@@ -106,6 +107,60 @@ describe('schemas', () => {
         messages: [{ role: 'user', content: 'Hi' }],
         model: 'gpt-4',
       });
+      expect(result.success).toBe(false);
+    });
+
+    it('should accept max_tokens up to 65536', () => {
+      const result = ChatInputSchema.safeParse({
+        messages: [{ role: 'user', content: 'Hi' }],
+        max_tokens: 65536,
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('should reject max_tokens above 65536', () => {
+      const result = ChatInputSchema.safeParse({
+        messages: [{ role: 'user', content: 'Hi' }],
+        max_tokens: 65537,
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('should accept thinking parameter', () => {
+      const result = ChatInputSchema.safeParse({
+        messages: [{ role: 'user', content: 'Hi' }],
+        thinking: { type: 'enabled' },
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('should accept json_mode parameter', () => {
+      const result = ChatInputSchema.safeParse({
+        messages: [{ role: 'user', content: 'Return JSON' }],
+        json_mode: true,
+      });
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe('ThinkingSchema', () => {
+    it('should accept enabled', () => {
+      const result = ThinkingSchema.safeParse({ type: 'enabled' });
+      expect(result.success).toBe(true);
+    });
+
+    it('should accept disabled', () => {
+      const result = ThinkingSchema.safeParse({ type: 'disabled' });
+      expect(result.success).toBe(true);
+    });
+
+    it('should accept undefined', () => {
+      const result = ThinkingSchema.safeParse(undefined);
+      expect(result.success).toBe(true);
+    });
+
+    it('should reject invalid type', () => {
+      const result = ThinkingSchema.safeParse({ type: 'auto' });
       expect(result.success).toBe(false);
     });
   });
@@ -318,6 +373,30 @@ describe('schemas', () => {
       const result = ChatInputWithToolsSchema.safeParse({
         messages: [{ role: 'user', content: 'Hi' }],
         tools,
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('should accept thinking parameter', () => {
+      const result = ChatInputWithToolsSchema.safeParse({
+        messages: [{ role: 'user', content: 'Hi' }],
+        thinking: { type: 'enabled' },
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('should accept json_mode parameter', () => {
+      const result = ChatInputWithToolsSchema.safeParse({
+        messages: [{ role: 'user', content: 'Return JSON' }],
+        json_mode: true,
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('should accept max_tokens up to 65536', () => {
+      const result = ChatInputWithToolsSchema.safeParse({
+        messages: [{ role: 'user', content: 'Hi' }],
+        max_tokens: 65536,
       });
       expect(result.success).toBe(true);
     });

@@ -233,6 +233,120 @@ describe('DeepSeekClient', () => {
         })
       ).rejects.toThrow('No response from DeepSeek API');
     });
+
+    it('should extract cache token fields from usage', async () => {
+      mockCreate.mockResolvedValue({
+        choices: [
+          {
+            message: { content: 'Hello!', tool_calls: undefined },
+            finish_reason: 'stop',
+          },
+        ],
+        model: 'deepseek-chat',
+        usage: {
+          prompt_tokens: 100,
+          completion_tokens: 50,
+          total_tokens: 150,
+          prompt_cache_hit_tokens: 80,
+          prompt_cache_miss_tokens: 20,
+        },
+      });
+
+      const client = new DeepSeekClient();
+      const response = await client.createChatCompletion({
+        model: 'deepseek-chat',
+        messages: [{ role: 'user', content: 'Hi' }],
+      });
+
+      expect(response.usage.prompt_cache_hit_tokens).toBe(80);
+      expect(response.usage.prompt_cache_miss_tokens).toBe(20);
+    });
+
+    it('should pass thinking param via extra_body', async () => {
+      mockCreate.mockResolvedValue({
+        choices: [
+          {
+            message: { content: 'Response', tool_calls: undefined },
+            finish_reason: 'stop',
+          },
+        ],
+        model: 'deepseek-chat',
+        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+      });
+
+      const client = new DeepSeekClient();
+      await client.createChatCompletion({
+        model: 'deepseek-chat',
+        messages: [{ role: 'user', content: 'Think about this' }],
+        thinking: { type: 'enabled' },
+      });
+
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          extra_body: { thinking: { type: 'enabled' } },
+        })
+      );
+    });
+
+    it('should filter incompatible params when thinking is enabled', async () => {
+      mockCreate.mockResolvedValue({
+        choices: [
+          {
+            message: { content: 'Response', tool_calls: undefined },
+            finish_reason: 'stop',
+          },
+        ],
+        model: 'deepseek-chat',
+        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+      });
+
+      const mockError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const client = new DeepSeekClient();
+      await client.createChatCompletion({
+        model: 'deepseek-chat',
+        messages: [{ role: 'user', content: 'Think' }],
+        thinking: { type: 'enabled' },
+        temperature: 0.5,
+        top_p: 0.9,
+      });
+
+      // temperature and top_p should be undefined in the call
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          temperature: undefined,
+          top_p: undefined,
+        })
+      );
+
+      mockError.mockRestore();
+    });
+
+    it('should pass response_format for JSON mode', async () => {
+      mockCreate.mockResolvedValue({
+        choices: [
+          {
+            message: { content: '{"key":"value"}', tool_calls: undefined },
+            finish_reason: 'stop',
+          },
+        ],
+        model: 'deepseek-chat',
+        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+      });
+
+      const client = new DeepSeekClient();
+      await client.createChatCompletion({
+        model: 'deepseek-chat',
+        messages: [{ role: 'user', content: 'Return JSON' }],
+        response_format: { type: 'json_object' },
+      });
+
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          response_format: { type: 'json_object' },
+        })
+      );
+    });
   });
 
   describe('createStreamingChatCompletion', () => {
@@ -417,6 +531,43 @@ describe('DeepSeekClient', () => {
       expect(response.content).toBe('Answer');
       expect(response.reasoning_content).toBe('Step 1: Step 2');
       expect(response.model).toBe('deepseek-reasoner');
+    });
+
+    it('should extract cache tokens from streaming final chunk', async () => {
+      const chunks = [
+        {
+          choices: [{ delta: { content: 'Hi' }, finish_reason: null }],
+          model: 'deepseek-chat',
+        },
+        {
+          choices: [{ delta: {}, finish_reason: 'stop' }],
+          model: 'deepseek-chat',
+          usage: {
+            prompt_tokens: 100,
+            completion_tokens: 10,
+            total_tokens: 110,
+            prompt_cache_hit_tokens: 60,
+            prompt_cache_miss_tokens: 40,
+          },
+        },
+      ];
+
+      mockCreate.mockResolvedValue({
+        [Symbol.asyncIterator]: async function* () {
+          for (const chunk of chunks) {
+            yield chunk;
+          }
+        },
+      });
+
+      const client = new DeepSeekClient();
+      const response = await client.createStreamingChatCompletion({
+        model: 'deepseek-chat',
+        messages: [{ role: 'user', content: 'Hi' }],
+      });
+
+      expect(response.usage.prompt_cache_hit_tokens).toBe(60);
+      expect(response.usage.prompt_cache_miss_tokens).toBe(40);
     });
 
     it('should handle streaming error', async () => {
