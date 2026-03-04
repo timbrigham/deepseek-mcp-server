@@ -83,6 +83,31 @@ export class ValidationError extends BaseError {
 }
 
 /**
+ * All fallback models exhausted
+ */
+export class FallbackExhaustedError extends ApiError {
+  public readonly attemptedModels: string[];
+
+  constructor(
+    message: string,
+    attemptedModels: string[],
+    options?: ErrorOptions
+  ) {
+    super(message, { ...options, retryable: false });
+    this.attemptedModels = attemptedModels;
+  }
+}
+
+/**
+ * Circuit breaker is open — fast-fail
+ */
+export class CircuitBreakerOpenError extends BaseError {
+  constructor(message: string = 'Circuit breaker is open — requests are being rejected', options?: ErrorOptions) {
+    super(message, options);
+  }
+}
+
+/**
  * Network/connection error
  */
 export class ConnectionError extends BaseError {

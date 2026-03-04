@@ -1,6 +1,7 @@
 /**
  * Tool: deepseek_chat
  * Chat completion with DeepSeek models (V3.2)
+ * Supports multi-turn conversations via session_id
  */
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -15,8 +16,15 @@ import {
   ThinkingSchema,
 } from '../schemas.js';
 import type { DeepSeekClient } from '../deepseek-client.js';
-import type { DeepSeekChatInput } from '../types.js';
+import type { ChatMessage, DeepSeekChatInput } from '../types.js';
 import { getErrorMessage } from '../types.js';
+import { SessionStore } from '../session.js';
+import { UsageTracker } from '../usage-tracker.js';
+
+/** Input type extended with session_id */
+interface DeepSeekChatInputWithSession extends DeepSeekChatInput {
+  session_id?: string;
+}
 
 /** Maximum allowed message content length (from config) */
 function validateMessageLength(input: DeepSeekChatInput): void {
@@ -38,8 +46,8 @@ export function registerChatTool(server: McpServer, client: DeepSeekClient): voi
       description:
         'Chat with DeepSeek V3.2 AI models. Supports deepseek-chat for general conversations and ' +
         'deepseek-reasoner for complex reasoning tasks with chain-of-thought explanations. ' +
-        'Features: function calling (tools parameter), thinking mode for enhanced reasoning, ' +
-        'JSON output mode, and automatic cost tracking with cache hit/miss breakdown.',
+        'Features: multi-turn sessions (session_id), function calling (tools parameter), thinking mode, ' +
+        'JSON output mode, automatic cost tracking, and model fallback with circuit breaker resilience.',
       inputSchema: {
         messages: z
           .array(ExtendedMessageSchema)
@@ -91,6 +99,13 @@ export function registerChatTool(server: McpServer, client: DeepSeekClient): voi
           .describe(
             'Enable JSON output mode. The model will output valid JSON. Include the word "json" in your prompt for best results. Supported by both models.'
           ),
+        session_id: z
+          .string()
+          .optional()
+          .describe(
+            'Session ID for multi-turn conversations. When provided, previous messages from this session are prepended to the current messages. ' +
+            'If the session does not exist, it is created automatically. Omit for stateless single-turn requests.'
+          ),
       },
       outputSchema: {
         content: z.string(),
@@ -116,14 +131,15 @@ export function registerChatTool(server: McpServer, client: DeepSeekClient): voi
             })
           )
           .optional(),
+        session_id: z.string().optional(),
       },
     },
-    async (input: DeepSeekChatInput) => {
+    async (input: DeepSeekChatInputWithSession) => {
       try {
         // Validate message content length
         validateMessageLength(input);
 
-        // Validate input with extended schema (supports tools)
+        // Validate input with extended schema (supports tools + session_id)
         const validated = ChatInputWithToolsSchema.parse(input);
 
         // JSON mode guard: warn if "json" word is not in any message content
@@ -152,14 +168,30 @@ export function registerChatTool(server: McpServer, client: DeepSeekClient): voi
           }
         }
 
+        // Session management: build full message list
+        let allMessages: ChatMessage[] = validated.messages;
+        const sessionStore = SessionStore.getInstance();
+
+        if (validated.session_id) {
+          // Create or get session
+          const session = sessionStore.create(validated.session_id);
+          // Prepend previous session messages to current messages
+          const previousMessages = sessionStore.getMessages(validated.session_id);
+          allMessages = [...previousMessages, ...validated.messages];
+
+          console.error(
+            `[DeepSeek MCP] Session: id=${validated.session_id}, previous_messages=${previousMessages.length}, total_messages=${allMessages.length}`
+          );
+        }
+
         console.error(
-          `[DeepSeek MCP] Request: model=${validated.model}, messages=${validated.messages.length}, stream=${validated.stream}${validated.tools ? `, tools=${validated.tools.length}` : ''}${validated.thinking ? `, thinking=${validated.thinking.type}` : ''}${validated.json_mode ? ', json_mode=true' : ''}`
+          `[DeepSeek MCP] Request: model=${validated.model}, messages=${allMessages.length}, stream=${validated.stream}${validated.tools ? `, tools=${validated.tools.length}` : ''}${validated.thinking ? `, thinking=${validated.thinking.type}` : ''}${validated.json_mode ? ', json_mode=true' : ''}${validated.session_id ? `, session=${validated.session_id}` : ''}`
         );
 
         // Build params for client
         const clientParams = {
           model: validated.model,
-          messages: validated.messages,
+          messages: allMessages,
           temperature: validated.temperature,
           max_tokens: validated.max_tokens,
           tools: validated.tools,
@@ -178,6 +210,27 @@ export function registerChatTool(server: McpServer, client: DeepSeekClient): voi
         console.error(
           `[DeepSeek MCP] Response: tokens=${response.usage.total_tokens}, finish_reason=${response.finish_reason}${response.tool_calls ? `, tool_calls=${response.tool_calls.length}` : ''}`
         );
+
+        // Calculate cost
+        const costBreakdown = calculateCost(response.usage);
+
+        // Update session with new messages and response
+        if (validated.session_id) {
+          const session = sessionStore.get(validated.session_id);
+          if (session) {
+            // Add the new user messages to session
+            sessionStore.addMessages(validated.session_id, validated.messages);
+            // Add assistant response to session
+            sessionStore.addMessages(validated.session_id, [
+              { role: 'assistant', content: response.content },
+            ]);
+            session.totalCost += costBreakdown.totalCost;
+            session.requestCount++;
+          }
+        }
+
+        // Track usage globally
+        UsageTracker.getInstance().trackRequest(response.usage, costBreakdown.totalCost);
 
         // Format response
         let responseText = '';
@@ -199,9 +252,6 @@ export function registerChatTool(server: McpServer, client: DeepSeekClient): voi
           }
         }
 
-        // Calculate cost
-        const costBreakdown = calculateCost(response.usage);
-
         // Add usage stats with cost information (controlled by config)
         if (getConfig().showCostInfo) {
           responseText += `\n---\n**Request Information:**\n`;
@@ -210,6 +260,12 @@ export function registerChatTool(server: McpServer, client: DeepSeekClient): voi
           responseText += `- **Cost:** ${formatCost(costBreakdown)}`;
           if (response.tool_calls?.length) {
             responseText += `\n- **Tool Calls:** ${response.tool_calls.length}`;
+          }
+          if (validated.session_id) {
+            const session = sessionStore.get(validated.session_id);
+            if (session) {
+              responseText += `\n- **Session:** ${validated.session_id} (${session.messages.length} messages, ${session.requestCount} requests, $${session.totalCost.toFixed(4)} total)`;
+            }
           }
         }
 
@@ -223,6 +279,7 @@ export function registerChatTool(server: McpServer, client: DeepSeekClient): voi
           structuredContent: {
             ...response,
             cost_usd: parseFloat(costBreakdown.totalCost.toFixed(6)),
+            ...(validated.session_id ? { session_id: validated.session_id } : {}),
           } as unknown as Record<string, unknown>,
         };
       } catch (error: unknown) {

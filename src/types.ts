@@ -216,6 +216,75 @@ export interface DeepSeekStreamChunk {
   };
 }
 
+// ─── Session Types ─────────────────────────────────────────────
+
+/**
+ * Session data for multi-turn conversations
+ */
+export interface Session {
+  id: string;
+  messages: ChatMessage[];
+  createdAt: number;
+  lastAccessedAt: number;
+  totalCost: number;
+  requestCount: number;
+}
+
+/**
+ * Session info for listing (without full message history)
+ */
+export interface SessionInfo {
+  id: string;
+  messageCount: number;
+  createdAt: number;
+  lastAccessedAt: number;
+  totalCost: number;
+  requestCount: number;
+}
+
+// ─── Circuit Breaker Types ─────────────────────────────────────
+
+/**
+ * Circuit breaker states
+ */
+export type CircuitBreakerState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
+
+/**
+ * Circuit breaker status info
+ */
+export interface CircuitBreakerStatus {
+  state: CircuitBreakerState;
+  failureCount: number;
+  lastFailureTime: number;
+}
+
+// ─── Usage Tracking Types ──────────────────────────────────────
+
+/**
+ * Aggregated usage statistics
+ */
+export interface UsageStats {
+  totalRequests: number;
+  totalTokens: number;
+  totalPromptTokens: number;
+  totalCompletionTokens: number;
+  totalCost: number;
+  cacheHitTokens: number;
+  cacheMissTokens: number;
+  activeSessions: number;
+}
+
+// ─── Fallback Types ────────────────────────────────────────────
+
+/**
+ * Fallback information attached to responses
+ */
+export interface FallbackInfo {
+  originalModel: string;
+  fallbackModel: string;
+  reason: string;
+}
+
 // ─── Type Guards ───────────────────────────────────────────────
 
 /**

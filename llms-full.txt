@@ -1,6 +1,6 @@
 # DeepSeek MCP Server - Complete Documentation
 
-A Model Context Protocol (MCP) server that integrates DeepSeek V3.2 AI models with MCP-compatible clients like Claude Code and Gemini CLI. Provides chat completion, thinking mode, JSON output, function calling, cache-aware cost tracking, and 12 prompt templates via a single `deepseek_chat` tool.
+A Model Context Protocol (MCP) server that integrates DeepSeek V3.2 AI models with MCP-compatible clients like Claude Code and Gemini CLI. Provides multi-turn sessions, model fallback with circuit breaker, MCP Resources, chat completion, thinking mode, JSON output, function calling, cache-aware cost tracking, and 12 prompt templates.
 
 ## Installation
 
@@ -50,6 +50,27 @@ Both models run DeepSeek-V3.2 with unified pricing.
 | tool_choice | "auto" \| "none" \| "required" \| {type, function} | No | "auto" | Which tool to call |
 | thinking | {type: "enabled" \| "disabled"} | No | - | Enable thinking mode for enhanced reasoning |
 | json_mode | boolean | No | false | Enable JSON output mode (supported by both models) |
+| session_id | string | No | - | Session ID for multi-turn conversations |
+
+### Multi-Turn Sessions
+
+Use `session_id` to maintain conversation context across requests:
+
+```json
+// First request - creates session
+{
+  "messages": [{"role": "user", "content": "What is the capital of France?"}],
+  "session_id": "my-session"
+}
+
+// Second request - previous context is automatically prepended
+{
+  "messages": [{"role": "user", "content": "What about Germany?"}],
+  "session_id": "my-session"
+}
+```
+
+Sessions are stored in memory for the lifetime of the MCP server process. They expire after SESSION_TTL_MINUTES (default: 30). Omit session_id for stateless single-turn requests.
 
 ### Thinking Mode
 
@@ -120,9 +141,45 @@ Include the word "json" in your prompt for best results. Supported by both model
       "function": { "name": "fn_name", "arguments": "{\"key\":\"value\"}" }
     }
   ],
-  "cost_usd": 0.000012
+  "cost_usd": 0.000012,
+  "session_id": "my-session"
 }
 ```
+
+## Tool: deepseek_sessions
+
+Manage conversation sessions:
+
+```json
+{"action": "list"}                                   // List all active sessions
+{"action": "delete", "session_id": "my-session"}     // Delete specific session
+{"action": "clear"}                                  // Clear all sessions
+```
+
+## MCP Resources
+
+Three read-only resources:
+
+| URI | Description |
+|-----|-------------|
+| deepseek://models | Model list with capabilities, context limits, pricing |
+| deepseek://config | Current server config (API key masked: sk-****1234) |
+| deepseek://usage | Real-time usage stats (requests, tokens, costs, sessions, cache ratio) |
+
+## Model Fallback & Circuit Breaker
+
+**Fallback**: On retryable errors (429, 503, timeout), automatically tries the other model:
+- deepseek-chat fails → tries deepseek-reasoner
+- deepseek-reasoner fails → tries deepseek-chat
+- Response includes fallback info when fallback was used
+
+**Circuit Breaker**: Protects against cascading failures:
+- CLOSED → normal operation
+- After 5 failures → OPEN (fast-fail for 30s)
+- After timeout → HALF_OPEN (probe with 1 request)
+- Probe succeeds → CLOSED; Probe fails → OPEN again
+
+Disable with FALLBACK_ENABLED=false.
 
 ## Function Calling Flow
 
@@ -132,22 +189,6 @@ Include the word "json" in your prompt for best results. Supported by both model
 4. Send result back as a `tool` role message with `tool_call_id`
 5. Model generates final response using the tool result
 
-Example:
-```json
-{
-  "messages": [
-    {"role": "user", "content": "Weather in NYC?"}
-  ],
-  "tools": [{
-    "type": "function",
-    "function": {
-      "name": "get_weather",
-      "parameters": {"type": "object", "properties": {"city": {"type": "string"}}}
-    }
-  }]
-}
-```
-
 ## Cost Tracking
 
 V3.2 provides cache-aware pricing. Cost display shows:
@@ -156,8 +197,6 @@ V3.2 provides cache-aware pricing. Cost display shows:
 - Estimated savings from cache hits
 
 Example output: `$0.0042 (cache hit: 80%, saved ~$0.0168)`
-
-If the API doesn't return cache fields (older responses), all input is treated as cache miss — no breaking change.
 
 ## Configuration (Environment Variables)
 
@@ -170,6 +209,9 @@ If the API doesn't return cache fields (older responses), all input is treated a
 | MAX_RETRIES | 2 | Max retry count |
 | SKIP_CONNECTION_TEST | false | Skip startup API connection test |
 | MAX_MESSAGE_LENGTH | 100000 | Max message content length (chars) |
+| SESSION_TTL_MINUTES | 30 | Session time-to-live in minutes |
+| MAX_SESSIONS | 100 | Maximum concurrent sessions |
+| FALLBACK_ENABLED | true | Enable automatic model fallback |
 
 ## Prompt Templates (12 total)
 
@@ -197,15 +239,24 @@ If the API doesn't return cache fields (older responses), all input is treated a
 src/
   index.ts              # Entry point, bootstrap
   server.ts             # McpServer factory (version from package.json)
-  deepseek-client.ts    # DeepSeek API wrapper (OpenAI SDK)
+  deepseek-client.ts    # DeepSeek API wrapper (circuit breaker + fallback)
   config.ts             # Zod-validated config from env vars
   cost.ts               # V3.2 cache-aware cost calculation
   schemas.ts            # Zod input validation schemas
   types.ts              # TypeScript types + type guards
-  errors.ts             # Custom error classes (ConfigError, ApiError, etc.)
+  errors.ts             # Custom error classes
+  session.ts            # In-memory session store
+  circuit-breaker.ts    # Circuit breaker pattern
+  usage-tracker.ts      # Usage statistics tracker
   tools/
-    deepseek-chat.ts    # deepseek_chat tool handler
+    deepseek-chat.ts    # deepseek_chat tool (sessions + fallback)
+    deepseek-sessions.ts # deepseek_sessions tool
     index.ts            # Tool registration aggregator
+  resources/
+    models.ts           # deepseek://models resource
+    config.ts           # deepseek://config resource
+    usage.ts            # deepseek://usage resource
+    index.ts            # Resource registration aggregator
   prompts/
     core.ts             # 5 core reasoning prompts
     advanced.ts         # 5 advanced prompts
@@ -219,7 +270,7 @@ src/
 - @modelcontextprotocol/sdk for MCP protocol
 - OpenAI SDK for API compatibility
 - Zod for validation
-- Vitest for testing (150 tests)
+- Vitest for testing (198 tests)
 - Node.js 18+
 
 ## Links

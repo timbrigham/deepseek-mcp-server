@@ -70,4 +70,12 @@ export const ChatInputWithToolsSchema = z.object({
   tool_choice: ToolChoiceSchema.optional(),
   thinking: ThinkingSchema,
   json_mode: z.boolean().optional(),
+  session_id: z.string().optional(),
+});
+
+// ─── Session Management Schemas ────────────────────────────────
+
+export const SessionActionSchema = z.object({
+  action: z.enum(['list', 'clear', 'delete']),
+  session_id: z.string().optional(),
 });

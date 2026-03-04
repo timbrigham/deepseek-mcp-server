@@ -1,15 +1,18 @@
 # DeepSeek MCP Server
 
-> MCP server integrating DeepSeek V3.2 AI models (Chat + Reasoner) with Claude Code, Gemini CLI, and other MCP clients. Thinking mode, JSON output, function calling, cache-aware cost tracking, 12 prompt templates.
+> MCP server integrating DeepSeek V3.2 AI models (Chat + Reasoner) with Claude Code, Gemini CLI, and other MCP clients. Multi-turn sessions, model fallback with circuit breaker, MCP Resources, thinking mode, JSON output, function calling, cache-aware cost tracking, 12 prompt templates.
 
 ## Docs
 
 - [README](https://github.com/arikusi/deepseek-mcp-server#readme): Installation, quick start, configuration, usage examples
 - [API Reference](https://github.com/arikusi/deepseek-mcp-server#available-tools): deepseek_chat tool parameters and response format
+- [Session Management](https://github.com/arikusi/deepseek-mcp-server#multi-turn-session-example): Multi-turn conversations via session_id
+- [Model Fallback](https://github.com/arikusi/deepseek-mcp-server#model-fallback--circuit-breaker): Automatic fallback with circuit breaker resilience
+- [MCP Resources](https://github.com/arikusi/deepseek-mcp-server#available-resources): deepseek://models, deepseek://config, deepseek://usage
 - [Thinking Mode](https://github.com/arikusi/deepseek-mcp-server#thinking-mode-example): Enable enhanced reasoning with thinking parameter
 - [JSON Mode](https://github.com/arikusi/deepseek-mcp-server#json-output-mode-example): Structured JSON output mode
 - [Function Calling](https://github.com/arikusi/deepseek-mcp-server#function-calling-example): Tool definitions, tool_choice, tool result messages
 - [Prompt Templates](https://github.com/arikusi/deepseek-mcp-server#available-prompts): 12 pre-built prompts for debugging, code review, research
-- [Configuration](https://github.com/arikusi/deepseek-mcp-server#configuration): Environment variables (API key, base URL, timeout, retries)
+- [Configuration](https://github.com/arikusi/deepseek-mcp-server#configuration): Environment variables (API key, sessions, fallback, timeout)
 - [Changelog](https://github.com/arikusi/deepseek-mcp-server/blob/main/CHANGELOG.md): Version history and release notes
 - [Full Documentation](https://github.com/arikusi/deepseek-mcp-server/blob/main/llms-full.txt): Complete docs in single file for LLM context

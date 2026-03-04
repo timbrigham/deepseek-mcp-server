@@ -206,7 +206,7 @@ describe('DeepSeekClient', () => {
       expect(response.tool_calls![1].function.name).toBe('get_time');
     });
 
-    it('should throw on API error', async () => {
+    it('should throw FallbackExhaustedError on retryable API error (both models fail)', async () => {
       mockCreate.mockRejectedValue(new Error('API rate limit exceeded'));
 
       const client = new DeepSeekClient();
@@ -215,7 +215,19 @@ describe('DeepSeekClient', () => {
           model: 'deepseek-chat',
           messages: [{ role: 'user', content: 'Hi' }],
         })
-      ).rejects.toThrow('DeepSeek API Error: API rate limit exceeded');
+      ).rejects.toThrow('All models failed');
+    });
+
+    it('should throw ApiError on non-retryable error (no fallback)', async () => {
+      mockCreate.mockRejectedValue(new Error('Invalid request format'));
+
+      const client = new DeepSeekClient();
+      await expect(
+        client.createChatCompletion({
+          model: 'deepseek-chat',
+          messages: [{ role: 'user', content: 'Hi' }],
+        })
+      ).rejects.toThrow('DeepSeek API Error: Invalid request format');
     });
 
     it('should throw when no choices returned', async () => {

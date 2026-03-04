@@ -14,6 +14,9 @@ const ConfigSchema = z.object({
   maxRetries: z.number().min(0).max(10).default(2),
   skipConnectionTest: z.boolean().default(false),
   maxMessageLength: z.number().positive().default(100_000),
+  sessionTtlMinutes: z.number().positive().default(30),
+  maxSessions: z.number().positive().default(100),
+  fallbackEnabled: z.boolean().default(true),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -40,6 +43,13 @@ export function loadConfig(): Config {
     maxMessageLength: process.env.MAX_MESSAGE_LENGTH
       ? parseInt(process.env.MAX_MESSAGE_LENGTH, 10)
       : 100_000,
+    sessionTtlMinutes: process.env.SESSION_TTL_MINUTES
+      ? parseInt(process.env.SESSION_TTL_MINUTES, 10)
+      : 30,
+    maxSessions: process.env.MAX_SESSIONS
+      ? parseInt(process.env.MAX_SESSIONS, 10)
+      : 100,
+    fallbackEnabled: process.env.FALLBACK_ENABLED !== 'false',
   };
 
   const result = ConfigSchema.safeParse(raw);

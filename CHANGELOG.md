@@ -16,6 +16,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Nothing yet
 
+## [1.3.0] - 2026-03-04
+
+### Added
+- **Multi-Turn Sessions**: `session_id` parameter on `deepseek_chat` for multi-turn conversations. Session history is stored in memory and automatically prepended to requests. Sessions have configurable TTL and max count.
+- **Session Management Tool**: `deepseek_sessions` tool with `list`, `delete`, and `clear` actions for managing active sessions.
+- **Circuit Breaker**: Protects against cascading API failures. After 5 consecutive failures, fast-fails for 30 seconds, then probes for recovery.
+- **Model Fallback**: Automatic fallback between `deepseek-chat` and `deepseek-reasoner` on retryable errors (429, 503, timeout). Configurable via `FALLBACK_ENABLED`.
+- **MCP Resources**: 3 read-only resources following MCP Resources spec:
+  - `deepseek://models`: Model list with capabilities, context limits, and pricing
+  - `deepseek://config`: Current server configuration (API key masked)
+  - `deepseek://usage`: Real-time usage statistics (requests, tokens, costs, sessions)
+- **Usage Tracker**: Global usage statistics tracking across all requests.
+- **New Error Classes**: `FallbackExhaustedError`, `CircuitBreakerOpenError` for resilience error handling.
+- **New Config**: `SESSION_TTL_MINUTES` (default: 30), `MAX_SESSIONS` (default: 100), `FALLBACK_ENABLED` (default: true).
+- **198 Tests**: Up from 150, covering sessions, circuit breaker, fallback, and MCP resources.
+
+### Changed
+- `deepseek-client.ts` now wraps API calls in circuit breaker and supports automatic model fallback.
+- `deepseek_chat` tool description updated to mention sessions, fallback, and circuit breaker.
+- `tools/index.ts` now registers both `deepseek_chat` and `deepseek_sessions` tools.
+- `index.ts` now registers MCP resources via `registerAllResources()`.
+
 ## [1.2.0] - 2026-02-26
 
 ### Added
@@ -171,6 +193,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
+- **1.3.0** (2026-03-04): Sessions, circuit breaker, model fallback, MCP resources, 198 tests
 - **1.2.0** (2026-02-26): DeepSeek V3.2 support — thinking mode, JSON mode, cache-aware pricing, 150 tests
 - **1.1.1** (2026-02-11): Modular architecture, type safety, security fixes, 126 tests
 - **1.1.0** (2026-02-10): Function calling, config system, test suite
@@ -184,7 +207,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [GitHub repository](https://github.com/arikusi/deepseek-mcp-server)
 - [Issue tracker](https://github.com/arikusi/deepseek-mcp-server/issues)
 
-[Unreleased]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.0.3...v1.1.0

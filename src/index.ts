@@ -12,6 +12,7 @@ import { DeepSeekClient } from './deepseek-client.js';
 import { createServer, version } from './server.js';
 import { registerAllTools } from './tools/index.js';
 import { registerAllPrompts } from './prompts/index.js';
+import { registerAllResources } from './resources/index.js';
 
 async function main() {
   // Load and validate configuration
@@ -31,9 +32,10 @@ async function main() {
   const deepseek = new DeepSeekClient();
   const server = createServer();
 
-  // Register tools and prompts
+  // Register tools, prompts, and resources
   registerAllTools(server, deepseek);
   registerAllPrompts(server);
+  registerAllResources(server);
 
   console.error(`[DeepSeek MCP] Starting server v${version}...`);
 
@@ -58,9 +60,10 @@ async function main() {
 
   console.error('[DeepSeek MCP] Server running on stdio');
   console.error(
-    '[DeepSeek MCP] Available tools: deepseek_chat (with function calling support)'
+    '[DeepSeek MCP] Available tools: deepseek_chat (sessions, fallback), deepseek_sessions'
   );
   console.error('[DeepSeek MCP] Available prompts: 12 reasoning templates');
+  console.error('[DeepSeek MCP] Available resources: deepseek://models, deepseek://config, deepseek://usage');
 }
 
 // Error handling

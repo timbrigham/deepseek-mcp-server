@@ -7,12 +7,12 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
 [![Build Status](https://github.com/arikusi/deepseek-mcp-server/workflows/CI/badge.svg)](https://github.com/arikusi/deepseek-mcp-server/actions)
 
-A Model Context Protocol (MCP) server that integrates DeepSeek AI models with MCP-compatible clients. Access DeepSeek's powerful chat and reasoning models directly from your development environment.
+A Model Context Protocol (MCP) server that integrates DeepSeek AI models with MCP-compatible clients. Access DeepSeek's powerful chat and reasoning models with multi-turn sessions, automatic model fallback, and MCP Resources directly from your development environment.
 
 **Compatible with:**
 - Claude Code CLI
-- Gemini CLI (if MCP support is available)
-- Any MCP-compatible client
+- Gemini CLI
+- Any MCP-compatible client (Cursor, Windsurf, etc.)
 
 > **Note**: This is an unofficial community project and is not affiliated with DeepSeek.
 
@@ -49,14 +49,18 @@ That's it! Your MCP client can now use DeepSeek models!
 ## Features
 
 - **DeepSeek V3.2**: Both models now run DeepSeek-V3.2 (since Sept 2025)
+- **Multi-Turn Sessions**: Conversation context preserved across requests via `session_id` parameter
+- **Model Fallback & Circuit Breaker**: Automatic fallback between models with circuit breaker protection against cascading failures
+- **MCP Resources**: `deepseek://models`, `deepseek://config`, `deepseek://usage` — query model info, config, and usage stats
 - **Thinking Mode**: Enable enhanced reasoning on deepseek-chat with `thinking: {type: "enabled"}`
 - **JSON Output Mode**: Structured JSON responses with `json_mode: true`
 - **Function Calling**: OpenAI-compatible tool use with up to 128 tool definitions
 - **Cache-Aware Cost Tracking**: Automatic cost calculation with cache hit/miss breakdown
+- **Session Management Tool**: List, delete, and clear sessions via `deepseek_sessions` tool
 - **Configurable**: Environment-based configuration with validation
 - **12 Prompt Templates**: Pre-built templates for debugging, code review, function calling, and more
 - **Streaming Support**: Real-time response generation
-- **Tested**: 150 tests with 90%+ code coverage
+- **Tested**: 198 tests with 90%+ code coverage
 - **Type-Safe**: Full TypeScript implementation
 - **MCP Compatible**: Works with any MCP-compatible CLI (Claude Code, Gemini CLI, etc.)
 
@@ -98,7 +102,7 @@ npm run build
 
 ## Usage
 
-Once configured, your MCP client will have access to the `deepseek_chat` tool and can use DeepSeek models.
+Once configured, your MCP client will have access to `deepseek_chat` and `deepseek_sessions` tools, plus 3 MCP resources.
 
 **Example prompts:**
 ```
@@ -150,6 +154,7 @@ Chat with DeepSeek AI models with automatic cost tracking and function calling s
 - `tool_choice` (optional): "auto" | "none" | "required" | `{type: "function", function: {name: "..."}}`
 - `thinking` (optional): Enable thinking mode `{type: "enabled"}` for enhanced reasoning
 - `json_mode` (optional): Enable JSON output mode (supported by both models)
+- `session_id` (optional): Session ID for multi-turn conversations. Previous context is automatically prepended.
 
 **Response includes:**
 - Content with formatting
@@ -258,6 +263,60 @@ When thinking mode is enabled, `temperature`, `top_p`, `frequency_penalty`, and 
 
 JSON mode ensures the model outputs valid JSON. Include the word "json" in your prompt for best results. Supported by both `deepseek-chat` and `deepseek-reasoner`.
 
+**Multi-Turn Session Example:**
+
+```json
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "What is the capital of France?"
+    }
+  ],
+  "session_id": "my-session-1"
+}
+```
+
+Use the same `session_id` across requests to maintain conversation context. The server stores messages in memory and automatically prepends history to each request.
+
+### `deepseek_sessions`
+
+Manage conversation sessions.
+
+**Parameters:**
+- `action` (required): "list" | "clear" | "delete"
+- `session_id` (optional): Required when action is "delete"
+
+**Examples:**
+```json
+{"action": "list"}
+{"action": "delete", "session_id": "my-session-1"}
+{"action": "clear"}
+```
+
+## Available Resources
+
+MCP Resources provide read-only data about the server:
+
+| Resource URI | Description |
+|-------------|-------------|
+| `deepseek://models` | Available models with capabilities, context limits, and pricing |
+| `deepseek://config` | Current server configuration (API key masked) |
+| `deepseek://usage` | Real-time usage statistics (requests, tokens, costs, sessions) |
+
+## Model Fallback & Circuit Breaker
+
+When a model fails with a retryable error (429, 503, timeout), the server automatically falls back to the other model:
+- `deepseek-chat` fails → tries `deepseek-reasoner`
+- `deepseek-reasoner` fails → tries `deepseek-chat`
+
+The circuit breaker protects against cascading failures:
+- After 5 consecutive failures, the circuit **opens** (fast-fail mode)
+- After 30 seconds, it enters **half-open** state and sends a probe request
+- If the probe succeeds, the circuit **closes** and normal operation resumes
+
+Fallback can be disabled with `FALLBACK_ENABLED=false`.
+
 ## Available Prompts
 
 Pre-built prompt templates for common tasks (12 total):
@@ -320,6 +379,9 @@ The server is configured via environment variables. All settings except `DEEPSEE
 | `MAX_RETRIES` | `2` | Maximum retry count for failed requests |
 | `SKIP_CONNECTION_TEST` | `false` | Skip startup API connection test |
 | `MAX_MESSAGE_LENGTH` | `100000` | Maximum message content length (characters) |
+| `SESSION_TTL_MINUTES` | `30` | Session time-to-live in minutes |
+| `MAX_SESSIONS` | `100` | Maximum number of concurrent sessions |
+| `FALLBACK_ENABLED` | `true` | Enable automatic model fallback on errors |
 
 **Example with custom config:**
 ```bash
@@ -336,17 +398,26 @@ claude mcp add -s user deepseek npx @arikusi/deepseek-mcp-server \
 ```
 deepseek-mcp-server/
 ├── src/
-│   ├── index.ts              # Entry point, bootstrap (~80 lines)
+│   ├── index.ts              # Entry point, bootstrap
 │   ├── server.ts             # McpServer factory (auto-version)
-│   ├── deepseek-client.ts    # DeepSeek API wrapper (OpenAI SDK)
+│   ├── deepseek-client.ts    # DeepSeek API wrapper (circuit breaker + fallback)
 │   ├── config.ts             # Centralized config with Zod validation
 │   ├── cost.ts               # Cost calculation and formatting
 │   ├── schemas.ts            # Zod input validation schemas
 │   ├── types.ts              # TypeScript types + type guards
 │   ├── errors.ts             # Custom error classes
+│   ├── session.ts            # In-memory session store (multi-turn)
+│   ├── circuit-breaker.ts    # Circuit breaker pattern
+│   ├── usage-tracker.ts      # Usage statistics tracker
 │   ├── tools/
-│   │   ├── deepseek-chat.ts  # deepseek_chat tool handler
+│   │   ├── deepseek-chat.ts  # deepseek_chat tool (sessions + fallback)
+│   │   ├── deepseek-sessions.ts # deepseek_sessions tool
 │   │   └── index.ts          # Tool registration aggregator
+│   ├── resources/
+│   │   ├── models.ts         # deepseek://models resource
+│   │   ├── config.ts         # deepseek://config resource
+│   │   ├── usage.ts          # deepseek://usage resource
+│   │   └── index.ts          # Resource registration aggregator
 │   └── prompts/
 │       ├── core.ts           # 5 core reasoning prompts
 │       ├── advanced.ts       # 5 advanced prompts
