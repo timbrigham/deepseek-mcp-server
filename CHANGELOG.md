@@ -16,6 +16,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Nothing yet
 
+## [1.3.1] - 2026-03-06
+
+### Added
+- **Test Coverage**: `deepseek_sessions` tool tests (8 tests, 0% → 90%+ coverage)
+- **Test Coverage**: Tool registration aggregator tests (2 tests)
+- **208 Tests**: Up from 198, covering session tool actions and tool registration
+
+### Fixed
+- **Security**: Updated transitive dependencies via `npm audit fix` — resolved 5 vulnerabilities (3 high) in hono, @hono/node-server, rollup, ajv, qs
+
 ## [1.3.0] - 2026-03-04
 
 ### Added
@@ -193,6 +203,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
+- **1.3.1** (2026-03-06): Security fixes, session tool tests, 208 tests
 - **1.3.0** (2026-03-04): Sessions, circuit breaker, model fallback, MCP resources, 198 tests
 - **1.2.0** (2026-02-26): DeepSeek V3.2 support — thinking mode, JSON mode, cache-aware pricing, 150 tests
 - **1.1.1** (2026-02-11): Modular architecture, type safety, security fixes, 126 tests
@@ -207,7 +218,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [GitHub repository](https://github.com/arikusi/deepseek-mcp-server)
 - [Issue tracker](https://github.com/arikusi/deepseek-mcp-server/issues)
 
-[Unreleased]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.1.0...v1.1.1
