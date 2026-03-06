@@ -17,6 +17,7 @@ const ConfigSchema = z.object({
   sessionTtlMinutes: z.number().positive().default(30),
   maxSessions: z.number().positive().default(100),
   fallbackEnabled: z.boolean().default(true),
+  defaultModel: z.string().default('deepseek-chat'),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -50,6 +51,7 @@ export function loadConfig(): Config {
       ? parseInt(process.env.MAX_SESSIONS, 10)
       : 100,
     fallbackEnabled: process.env.FALLBACK_ENABLED !== 'false',
+    defaultModel: process.env.DEFAULT_MODEL || 'deepseek-chat',
   };
 
   const result = ConfigSchema.safeParse(raw);

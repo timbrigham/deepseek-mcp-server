@@ -36,6 +36,7 @@ export function registerConfigResource(server: McpServer): void {
         sessionTtlMinutes: config.sessionTtlMinutes,
         maxSessions: config.maxSessions,
         fallbackEnabled: config.fallbackEnabled,
+        defaultModel: config.defaultModel,
         skipConnectionTest: config.skipConnectionTest,
       };
 

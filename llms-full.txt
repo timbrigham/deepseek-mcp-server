@@ -264,13 +264,29 @@ src/
     index.ts            # Prompt registration aggregator
 ```
 
+## Configuration (Environment Variables)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| DEEPSEEK_API_KEY | (required) | DeepSeek API key |
+| DEEPSEEK_BASE_URL | https://api.deepseek.com | Custom API endpoint |
+| DEFAULT_MODEL | deepseek-chat | Default model for requests |
+| SHOW_COST_INFO | true | Show cost info in responses |
+| REQUEST_TIMEOUT | 60000 | Request timeout (ms) |
+| MAX_RETRIES | 2 | Max retry count |
+| SKIP_CONNECTION_TEST | false | Skip startup API connection test |
+| MAX_MESSAGE_LENGTH | 100000 | Max message content length (chars) |
+| SESSION_TTL_MINUTES | 30 | Session time-to-live in minutes |
+| MAX_SESSIONS | 100 | Maximum concurrent sessions |
+| FALLBACK_ENABLED | true | Enable automatic model fallback |
+
 ## Tech Stack
 
 - TypeScript 5.7 (strict mode)
 - @modelcontextprotocol/sdk for MCP protocol
-- OpenAI SDK for API compatibility
-- Zod for validation
-- Vitest for testing (198 tests)
+- OpenAI SDK v6 for API compatibility
+- Zod v4 for validation (14x faster parsing)
+- Vitest for testing (208 tests)
 - Node.js 18+
 
 ## Links

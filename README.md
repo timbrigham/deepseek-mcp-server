@@ -374,6 +374,7 @@ The server is configured via environment variables. All settings except `DEEPSEE
 |----------|---------|-------------|
 | `DEEPSEEK_API_KEY` | (required) | Your DeepSeek API key |
 | `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | Custom API endpoint |
+| `DEFAULT_MODEL` | `deepseek-chat` | Default model for requests |
 | `SHOW_COST_INFO` | `true` | Show cost info in responses |
 | `REQUEST_TIMEOUT` | `60000` | Request timeout in milliseconds |
 | `MAX_RETRIES` | `2` | Maximum retry count for failed requests |
