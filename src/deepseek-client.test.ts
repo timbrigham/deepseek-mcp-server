@@ -593,6 +593,94 @@ describe('DeepSeekClient', () => {
         })
       ).rejects.toThrow('DeepSeek Streaming API Error: Stream connection lost');
     });
+
+    it('should fallback to other model on streaming retryable error', async () => {
+      let callCount = 0;
+      mockCreate.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.reject(new Error('429 rate limit'));
+        }
+        return Promise.resolve({
+          [Symbol.asyncIterator]: async function* () {
+            yield {
+              choices: [{ delta: { content: 'Fallback response' }, finish_reason: null }],
+              model: 'deepseek-reasoner',
+            };
+            yield {
+              choices: [{ delta: {}, finish_reason: 'stop' }],
+              model: 'deepseek-reasoner',
+              usage: { prompt_tokens: 5, completion_tokens: 3, total_tokens: 8 },
+            };
+          },
+        });
+      });
+
+      const mockError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const client = new DeepSeekClient();
+      const response = await client.createStreamingChatCompletion({
+        model: 'deepseek-chat',
+        messages: [{ role: 'user', content: 'Hi' }],
+      });
+
+      expect(response.content).toBe('Fallback response');
+      expect(response.fallback).toBeDefined();
+      expect(response.fallback!.originalModel).toBe('deepseek-chat');
+      expect(response.fallback!.fallbackModel).toBe('deepseek-reasoner');
+      expect(response.fallback!.reason).toContain('429');
+      mockError.mockRestore();
+    });
+
+    it('should throw FallbackExhaustedError when streaming both models fail', async () => {
+      mockCreate.mockRejectedValue(new Error('503 service unavailable'));
+
+      const mockError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const client = new DeepSeekClient();
+      await expect(
+        client.createStreamingChatCompletion({
+          model: 'deepseek-chat',
+          messages: [{ role: 'user', content: 'Hi' }],
+        })
+      ).rejects.toThrow('All models failed (streaming)');
+      mockError.mockRestore();
+    });
+
+    it('should not fallback on streaming non-retryable error', async () => {
+      mockCreate.mockRejectedValue(new Error('Invalid request format'));
+
+      const client = new DeepSeekClient();
+      await expect(
+        client.createStreamingChatCompletion({
+          model: 'deepseek-chat',
+          messages: [{ role: 'user', content: 'Hi' }],
+        })
+      ).rejects.toThrow('DeepSeek Streaming API Error: Invalid request format');
+
+      // mockCreate should only be called once (no fallback attempt)
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not fallback when streaming fallback is disabled', async () => {
+      resetConfig();
+      process.env.DEEPSEEK_API_KEY = 'test-key';
+      process.env.FALLBACK_ENABLED = 'false';
+      loadConfig();
+
+      mockCreate.mockRejectedValue(new Error('429 rate limit'));
+
+      const client = new DeepSeekClient();
+      await expect(
+        client.createStreamingChatCompletion({
+          model: 'deepseek-chat',
+          messages: [{ role: 'user', content: 'Hi' }],
+        })
+      ).rejects.toThrow('DeepSeek Streaming API Error');
+
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+
+      // Clean up
+      delete process.env.FALLBACK_ENABLED;
+    });
   });
 
   describe('testConnection', () => {

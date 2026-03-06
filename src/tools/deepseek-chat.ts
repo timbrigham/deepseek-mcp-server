@@ -39,6 +39,11 @@ function validateMessageLength(input: DeepSeekChatInput): void {
 }
 
 export function registerChatTool(server: McpServer, client: DeepSeekClient): void {
+  // Use config's defaultModel if it's a valid model name
+  const cfg = getConfig();
+  const modelDefault: 'deepseek-chat' | 'deepseek-reasoner' =
+    cfg.defaultModel === 'deepseek-reasoner' ? 'deepseek-reasoner' : 'deepseek-chat';
+
   server.registerTool(
     'deepseek_chat',
     {
@@ -57,7 +62,7 @@ export function registerChatTool(server: McpServer, client: DeepSeekClient): voi
           ),
         model: z
           .enum(['deepseek-chat', 'deepseek-reasoner'])
-          .default('deepseek-chat')
+          .default(modelDefault)
           .describe(
             'Model to use. Both run DeepSeek V3.2 (128K context). deepseek-chat: non-thinking mode (max 8K output), deepseek-reasoner: thinking mode (max 64K output)'
           ),
@@ -220,9 +225,13 @@ export function registerChatTool(server: McpServer, client: DeepSeekClient): voi
           if (session) {
             // Add the new user messages to session
             sessionStore.addMessages(validated.session_id, validated.messages);
-            // Add assistant response to session
+            // Add assistant response to session (include tool_calls for multi-turn function calling)
             sessionStore.addMessages(validated.session_id, [
-              { role: 'assistant', content: response.content },
+              {
+                role: 'assistant',
+                content: response.content,
+                ...(response.tool_calls ? { tool_calls: response.tool_calls } : {}),
+              },
             ]);
             session.totalCost += costBreakdown.totalCost;
             session.requestCount++;

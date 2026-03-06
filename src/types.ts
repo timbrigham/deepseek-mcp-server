@@ -20,6 +20,7 @@ export interface ChatMessage {
   role: MessageRole;
   content: string;
   tool_call_id?: string;
+  tool_calls?: ToolCall[];
 }
 
 // ─── Function Calling Types ─────────────────────────────────────

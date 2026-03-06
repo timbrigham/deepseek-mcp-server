@@ -78,7 +78,10 @@ export class DeepSeekClient {
       maxRetries: config.maxRetries,
     });
 
-    this.circuitBreaker = new CircuitBreaker(5, 30000);
+    this.circuitBreaker = new CircuitBreaker(
+      config.circuitBreakerThreshold,
+      config.circuitBreakerResetTimeout
+    );
   }
 
   /**

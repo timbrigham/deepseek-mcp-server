@@ -38,6 +38,9 @@ export function registerConfigResource(server: McpServer): void {
         fallbackEnabled: config.fallbackEnabled,
         defaultModel: config.defaultModel,
         skipConnectionTest: config.skipConnectionTest,
+        circuitBreakerThreshold: config.circuitBreakerThreshold,
+        circuitBreakerResetTimeout: config.circuitBreakerResetTimeout,
+        maxSessionMessages: config.maxSessionMessages,
       };
 
       return {

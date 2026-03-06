@@ -60,7 +60,7 @@ That's it! Your MCP client can now use DeepSeek models!
 - **Configurable**: Environment-based configuration with validation
 - **12 Prompt Templates**: Pre-built templates for debugging, code review, function calling, and more
 - **Streaming Support**: Real-time response generation
-- **Tested**: 198 tests with 90%+ code coverage
+- **Tested**: 212 tests with 90%+ code coverage
 - **Type-Safe**: Full TypeScript implementation
 - **MCP Compatible**: Works with any MCP-compatible CLI (Claude Code, Gemini CLI, etc.)
 
@@ -311,8 +311,8 @@ When a model fails with a retryable error (429, 503, timeout), the server automa
 - `deepseek-reasoner` fails → tries `deepseek-chat`
 
 The circuit breaker protects against cascading failures:
-- After 5 consecutive failures, the circuit **opens** (fast-fail mode)
-- After 30 seconds, it enters **half-open** state and sends a probe request
+- After `CIRCUIT_BREAKER_THRESHOLD` consecutive failures (default: 5), the circuit **opens** (fast-fail mode)
+- After `CIRCUIT_BREAKER_RESET_TIMEOUT` ms (default: 30000), it enters **half-open** state and sends a probe request
 - If the probe succeeds, the circuit **closes** and normal operation resumes
 
 Fallback can be disabled with `FALLBACK_ENABLED=false`.
@@ -383,6 +383,9 @@ The server is configured via environment variables. All settings except `DEEPSEE
 | `SESSION_TTL_MINUTES` | `30` | Session time-to-live in minutes |
 | `MAX_SESSIONS` | `100` | Maximum number of concurrent sessions |
 | `FALLBACK_ENABLED` | `true` | Enable automatic model fallback on errors |
+| `CIRCUIT_BREAKER_THRESHOLD` | `5` | Consecutive failures before circuit opens |
+| `CIRCUIT_BREAKER_RESET_TIMEOUT` | `30000` | Milliseconds before circuit half-opens |
+| `MAX_SESSION_MESSAGES` | `200` | Max messages per session (sliding window) |
 
 **Example with custom config:**
 ```bash

@@ -175,7 +175,7 @@ Three read-only resources:
 
 **Circuit Breaker**: Protects against cascading failures:
 - CLOSED → normal operation
-- After 5 failures → OPEN (fast-fail for 30s)
+- After CIRCUIT_BREAKER_THRESHOLD failures (default 5) → OPEN (fast-fail for CIRCUIT_BREAKER_RESET_TIMEOUT ms)
 - After timeout → HALF_OPEN (probe with 1 request)
 - Probe succeeds → CLOSED; Probe fails → OPEN again
 
@@ -204,6 +204,7 @@ Example output: `$0.0042 (cache hit: 80%, saved ~$0.0168)`
 |----------|---------|-------------|
 | DEEPSEEK_API_KEY | (required) | DeepSeek API key |
 | DEEPSEEK_BASE_URL | https://api.deepseek.com | Custom API endpoint |
+| DEFAULT_MODEL | deepseek-chat | Default model for requests |
 | SHOW_COST_INFO | true | Show cost info in responses |
 | REQUEST_TIMEOUT | 60000 | Request timeout (ms) |
 | MAX_RETRIES | 2 | Max retry count |
@@ -212,6 +213,9 @@ Example output: `$0.0042 (cache hit: 80%, saved ~$0.0168)`
 | SESSION_TTL_MINUTES | 30 | Session time-to-live in minutes |
 | MAX_SESSIONS | 100 | Maximum concurrent sessions |
 | FALLBACK_ENABLED | true | Enable automatic model fallback |
+| CIRCUIT_BREAKER_THRESHOLD | 5 | Consecutive failures before circuit opens |
+| CIRCUIT_BREAKER_RESET_TIMEOUT | 30000 | Milliseconds before circuit half-opens |
+| MAX_SESSION_MESSAGES | 200 | Max messages per session (sliding window) |
 
 ## Prompt Templates (12 total)
 
@@ -286,7 +290,7 @@ src/
 - @modelcontextprotocol/sdk for MCP protocol
 - OpenAI SDK v6 for API compatibility
 - Zod v4 for validation (14x faster parsing)
-- Vitest for testing (208 tests)
+- Vitest for testing (212 tests)
 - Node.js 18+
 
 ## Links

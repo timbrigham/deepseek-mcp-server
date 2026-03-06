@@ -6,7 +6,7 @@
  */
 
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { loadConfig } from './config.js';
+import { loadConfig, getConfig } from './config.js';
 import { ConfigError } from './errors.js';
 import { DeepSeekClient } from './deepseek-client.js';
 import { createServer, version } from './server.js';
@@ -28,7 +28,7 @@ async function main() {
     process.exit(1);
   }
 
-  const config = loadConfig();
+  const config = getConfig();
   const deepseek = new DeepSeekClient();
   const server = createServer();
 

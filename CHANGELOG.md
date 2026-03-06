@@ -16,6 +16,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Nothing yet
 
+## [1.3.3] - 2026-03-07
+
+### Added
+- **Streaming Fallback Tests**: 4 new tests covering streaming fallback success, both-models-fail, non-retryable skip, and disabled fallback scenarios
+- **Configurable Circuit Breaker**: `CIRCUIT_BREAKER_THRESHOLD` (default: 5) and `CIRCUIT_BREAKER_RESET_TIMEOUT` (default: 30000ms) environment variables
+- **Session Message Limit**: `MAX_SESSION_MESSAGES` (default: 200) environment variable prevents unbounded memory growth with sliding window eviction
+- **212 Tests**: Up from 208, covering streaming fallback edge cases
+
+### Fixed
+- **Session Tool Calls**: `ChatMessage` interface now includes `tool_calls` field — multi-turn function calling no longer loses tool context between requests
+- **Default Model Config**: `DEFAULT_MODEL` env variable now correctly applies to the `deepseek_chat` tool schema default value
+- **Double Config Load**: Removed redundant `loadConfig()` call in `index.ts` — config is now loaded once and retrieved with `getConfig()`
+- **Circuit Breaker Hardcoded Params**: Circuit breaker threshold and reset timeout are now read from config instead of being hardcoded (5, 30000)
+- **Config Resource**: `deepseek://config` resource now exposes `circuitBreakerThreshold`, `circuitBreakerResetTimeout`, and `maxSessionMessages` fields
+
 ## [1.3.2] - 2026-03-06
 
 ### Changed
@@ -211,6 +226,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
+- **1.3.3** (2026-03-07): Streaming fallback tests, session tool_calls fix, configurable circuit breaker, session message limit, 212 tests
 - **1.3.2** (2026-03-06): OpenAI SDK v6, Zod v4, DEFAULT_MODEL config
 - **1.3.1** (2026-03-06): Security fixes, session tool tests, 208 tests
 - **1.3.0** (2026-03-04): Sessions, circuit breaker, model fallback, MCP resources, 198 tests
@@ -227,7 +243,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [GitHub repository](https://github.com/arikusi/deepseek-mcp-server)
 - [Issue tracker](https://github.com/arikusi/deepseek-mcp-server/issues)
 
-[Unreleased]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.3.2...HEAD
+[Unreleased]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.3.3...HEAD
+[1.3.3]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.3.2...v1.3.3
 [1.3.2]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.2.0...v1.3.0

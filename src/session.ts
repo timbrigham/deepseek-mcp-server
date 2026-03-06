@@ -94,6 +94,12 @@ export class SessionStore {
       throw new Error(`Session not found: ${sessionId}`);
     }
     session.messages.push(...messages);
+
+    // Enforce message limit (sliding window)
+    const config = getConfig();
+    if (session.messages.length > config.maxSessionMessages) {
+      session.messages = session.messages.slice(-config.maxSessionMessages);
+    }
   }
 
   /**
