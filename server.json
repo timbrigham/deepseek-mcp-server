@@ -25,11 +25,11 @@
       ]
     },
     {
-      "registryType": "custom",
-      "identifier": "deepseek-mcp-worker",
+      "registryType": "npm",
+      "identifier": "@arikusi/deepseek-mcp-server",
       "version": "1.5.0",
       "transport": {
-        "type": "streamableHttp",
+        "type": "streamable-http",
         "url": "https://deepseek-mcp.tahirl.com/mcp"
       },
       "environmentVariables": [
