@@ -266,6 +266,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **1.4.3** (2026-03-07): MCP Registry description fix
 - **1.4.2** (2026-03-07): Streamable HTTP transport, Docker support, health endpoint, 253 tests
+- **1.4.1** (2026-03-07): MCP Registry, Glama registry, Smithery compatibility
 - **1.4.0** (2026-03-07): Model-aware pricing, multimodal content types, flexible fallback chain, MCP Registry, 241 tests
 - **1.3.3** (2026-03-07): Streaming fallback tests, session tool_calls fix, configurable circuit breaker, session message limit, 212 tests
 - **1.3.2** (2026-03-06): OpenAI SDK v6, Zod v4, DEFAULT_MODEL config
