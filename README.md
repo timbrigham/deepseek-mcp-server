@@ -7,8 +7,8 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
 [![Build Status](https://github.com/arikusi/deepseek-mcp-server/workflows/CI/badge.svg)](https://github.com/arikusi/deepseek-mcp-server/actions)
 
-<a href="https://glama.ai/mcp/servers/@arikusi/deepseek-mcp-server">
-  <img width="380" height="200" src="https://glama.ai/mcp/servers/@arikusi/deepseek-mcp-server/badge" />
+<a href="https://glama.ai/mcp/servers/arikusi/deepseek-mcp-server">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/arikusi/deepseek-mcp-server/badge" />
 </a>
 
 MCP server for DeepSeek AI models (Chat + Reasoner). Supports stdio and HTTP transports, Docker deployment, multi-turn sessions, model fallback with circuit breaker, function calling, thinking mode, JSON output, multimodal input, and cost tracking.
