@@ -1,0 +1,62 @@
+{
+  "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/registry/main/schema/server.json",
+  "name": "@arikusi/deepseek-mcp-server",
+  "description": "MCP server for DeepSeek AI models — chat, reasoning, sessions, function calling, model fallback, and cost tracking",
+  "version": "1.4.0",
+  "repository": "https://github.com/arikusi/deepseek-mcp-server",
+  "homepage": "https://github.com/arikusi/deepseek-mcp-server#readme",
+  "author": "arikusi",
+  "license": "MIT",
+  "transport": "stdio",
+  "runtime": "node",
+  "installation": {
+    "npm": "@arikusi/deepseek-mcp-server"
+  },
+  "configuration": {
+    "required": ["DEEPSEEK_API_KEY"],
+    "optional": [
+      "DEEPSEEK_BASE_URL",
+      "DEFAULT_MODEL",
+      "SHOW_COST_INFO",
+      "REQUEST_TIMEOUT",
+      "MAX_RETRIES",
+      "SKIP_CONNECTION_TEST",
+      "MAX_MESSAGE_LENGTH",
+      "SESSION_TTL_MINUTES",
+      "MAX_SESSIONS",
+      "FALLBACK_ENABLED",
+      "CIRCUIT_BREAKER_THRESHOLD",
+      "CIRCUIT_BREAKER_RESET_TIMEOUT",
+      "MAX_SESSION_MESSAGES",
+      "ENABLE_MULTIMODAL"
+    ]
+  },
+  "tools": [
+    {
+      "name": "deepseek_chat",
+      "description": "Chat with DeepSeek AI models with sessions, function calling, thinking mode, JSON output, and cost tracking"
+    },
+    {
+      "name": "deepseek_sessions",
+      "description": "List, delete, or clear conversation sessions"
+    }
+  ],
+  "resources": [
+    { "uri": "deepseek://models", "description": "Available models with capabilities and pricing" },
+    { "uri": "deepseek://config", "description": "Current server configuration (API key masked)" },
+    { "uri": "deepseek://usage", "description": "Real-time usage statistics" }
+  ],
+  "prompts": 12,
+  "keywords": [
+    "deepseek",
+    "ai",
+    "llm",
+    "mcp",
+    "chat",
+    "reasoning",
+    "function-calling",
+    "sessions",
+    "circuit-breaker",
+    "model-fallback"
+  ]
+}

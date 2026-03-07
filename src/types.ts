@@ -13,14 +13,52 @@ export type DeepSeekModel = 'deepseek-chat' | 'deepseek-reasoner';
  */
 export type MessageRole = 'system' | 'user' | 'assistant' | 'tool';
 
+// ─── Multimodal Content Types ───────────────────────────────────
+
+/**
+ * Text content part (standard message content)
+ */
+export interface TextContentPart {
+  type: 'text';
+  text: string;
+}
+
+/**
+ * Image content part (multimodal input)
+ */
+export interface ImageContentPart {
+  type: 'image_url';
+  image_url: {
+    url: string;
+    detail?: 'auto' | 'low' | 'high';
+  };
+}
+
+/**
+ * Content part for multimodal messages
+ */
+export type ContentPart = TextContentPart | ImageContentPart;
+
 /**
  * Chat message structure
  */
 export interface ChatMessage {
   role: MessageRole;
-  content: string;
+  content: string | ContentPart[];
   tool_call_id?: string;
   tool_calls?: ToolCall[];
+}
+
+/**
+ * Extract text from content (string or ContentPart array).
+ * For array content, concatenates all text parts.
+ */
+export function getTextContent(content: string | ContentPart[]): string {
+  if (typeof content === 'string') return content;
+  return content
+    .filter((p): p is TextContentPart => p.type === 'text')
+    .map((p) => p.text)
+    .join('');
 }
 
 // ─── Function Calling Types ─────────────────────────────────────
@@ -108,7 +146,7 @@ export interface ChatCompletionResponse {
 export interface DeepSeekChatInput {
   messages: Array<{
     role: string;
-    content: string;
+    content: string | ContentPart[];
     tool_call_id?: string;
   }>;
   model?: 'deepseek-chat' | 'deepseek-reasoner';

@@ -8,7 +8,12 @@ import {
   ChatInputWithToolsSchema,
   FunctionDefinitionSchema,
   ThinkingSchema,
+  ContentPartSchema,
+  ContentSchema,
+  TextContentPartSchema,
+  ImageContentPartSchema,
 } from './schemas.js';
+import { getTextContent } from './types.js';
 
 describe('schemas', () => {
   describe('MessageSchema', () => {
@@ -165,6 +170,112 @@ describe('schemas', () => {
     });
   });
 
+  describe('ContentPartSchema', () => {
+    it('should accept text content part', () => {
+      const result = TextContentPartSchema.safeParse({
+        type: 'text',
+        text: 'Hello',
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('should accept image content part', () => {
+      const result = ImageContentPartSchema.safeParse({
+        type: 'image_url',
+        image_url: { url: 'https://example.com/image.png' },
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('should accept image with detail parameter', () => {
+      const result = ImageContentPartSchema.safeParse({
+        type: 'image_url',
+        image_url: { url: 'https://example.com/image.png', detail: 'high' },
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('should reject invalid detail value', () => {
+      const result = ImageContentPartSchema.safeParse({
+        type: 'image_url',
+        image_url: { url: 'https://example.com/image.png', detail: 'ultra' },
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject unknown content part type', () => {
+      const result = ContentPartSchema.safeParse({
+        type: 'video',
+        url: 'https://example.com/video.mp4',
+      });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe('ContentSchema', () => {
+    it('should accept string content', () => {
+      const result = ContentSchema.safeParse('Hello');
+      expect(result.success).toBe(true);
+    });
+
+    it('should accept array of content parts', () => {
+      const result = ContentSchema.safeParse([
+        { type: 'text', text: 'Describe this image' },
+        { type: 'image_url', image_url: { url: 'https://example.com/img.png' } },
+      ]);
+      expect(result.success).toBe(true);
+    });
+
+    it('should reject empty array', () => {
+      const result = ContentSchema.safeParse([]);
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject array with invalid parts', () => {
+      const result = ContentSchema.safeParse([
+        { type: 'unknown', data: 'test' },
+      ]);
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe('getTextContent', () => {
+    it('should return string content as-is', () => {
+      expect(getTextContent('Hello world')).toBe('Hello world');
+    });
+
+    it('should extract text from single text part', () => {
+      expect(getTextContent([{ type: 'text', text: 'Hello' }])).toBe('Hello');
+    });
+
+    it('should concatenate multiple text parts', () => {
+      const result = getTextContent([
+        { type: 'text', text: 'Hello ' },
+        { type: 'text', text: 'world' },
+      ]);
+      expect(result).toBe('Hello world');
+    });
+
+    it('should skip image parts and return only text', () => {
+      const result = getTextContent([
+        { type: 'text', text: 'Describe this:' },
+        { type: 'image_url', image_url: { url: 'https://example.com/img.png' } },
+      ]);
+      expect(result).toBe('Describe this:');
+    });
+
+    it('should return empty string for image-only content', () => {
+      const result = getTextContent([
+        { type: 'image_url', image_url: { url: 'https://example.com/img.png' } },
+      ]);
+      expect(result).toBe('');
+    });
+
+    it('should return empty string for empty string input', () => {
+      expect(getTextContent('')).toBe('');
+    });
+  });
+
   describe('ExtendedMessageSchema', () => {
     it('should accept tool role with tool_call_id', () => {
       const result = ExtendedMessageSchema.safeParse({
@@ -191,6 +302,25 @@ describe('schemas', () => {
         });
         expect(result.success).toBe(true);
       }
+    });
+
+    it('should accept multimodal content array', () => {
+      const result = ExtendedMessageSchema.safeParse({
+        role: 'user',
+        content: [
+          { type: 'text', text: 'What is in this image?' },
+          { type: 'image_url', image_url: { url: 'https://example.com/photo.jpg' } },
+        ],
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('should accept text-only content array', () => {
+      const result = ExtendedMessageSchema.safeParse({
+        role: 'user',
+        content: [{ type: 'text', text: 'Hello' }],
+      });
+      expect(result.success).toBe(true);
     });
   });
 

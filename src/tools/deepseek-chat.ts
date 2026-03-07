@@ -1,6 +1,6 @@
 /**
  * Tool: deepseek_chat
- * Chat completion with DeepSeek models (V3.2)
+ * Chat completion with DeepSeek AI models
  * Supports multi-turn conversations via session_id
  */
 
@@ -14,10 +14,11 @@ import {
   ToolDefinitionSchema,
   ToolChoiceSchema,
   ThinkingSchema,
+  ContentSchema,
 } from '../schemas.js';
 import type { DeepSeekClient } from '../deepseek-client.js';
 import type { ChatMessage, DeepSeekChatInput } from '../types.js';
-import { getErrorMessage } from '../types.js';
+import { getErrorMessage, getTextContent } from '../types.js';
 import { SessionStore } from '../session.js';
 import { UsageTracker } from '../usage-tracker.js';
 
@@ -30,7 +31,8 @@ interface DeepSeekChatInputWithSession extends DeepSeekChatInput {
 function validateMessageLength(input: DeepSeekChatInput): void {
   const maxLen = getConfig().maxMessageLength;
   for (const msg of input.messages) {
-    if (msg.content.length > maxLen) {
+    const textLen = getTextContent(msg.content).length;
+    if (textLen > maxLen) {
       throw new Error(
         `Message content exceeds maximum length of ${maxLen} characters`
       );
@@ -49,16 +51,16 @@ export function registerChatTool(server: McpServer, client: DeepSeekClient): voi
     {
       title: 'DeepSeek Chat Completion',
       description:
-        'Chat with DeepSeek V3.2 AI models. Supports deepseek-chat for general conversations and ' +
+        'Chat with DeepSeek AI models. Supports deepseek-chat for general conversations and ' +
         'deepseek-reasoner for complex reasoning tasks with chain-of-thought explanations. ' +
         'Features: multi-turn sessions (session_id), function calling (tools parameter), thinking mode, ' +
-        'JSON output mode, automatic cost tracking, and model fallback with circuit breaker resilience.',
+        'JSON output mode, multimodal input (when enabled), automatic cost tracking, and model fallback with circuit breaker resilience.',
       inputSchema: {
         messages: z
           .array(ExtendedMessageSchema)
           .min(1)
           .describe(
-            'Array of conversation messages. Each message has role (system/user/assistant/tool) and content. Tool messages require tool_call_id.'
+            'Array of conversation messages. Each message has role (system/user/assistant/tool) and content (string or array of content parts for multimodal). Tool messages require tool_call_id.'
           ),
         model: z
           .enum(['deepseek-chat', 'deepseek-reasoner'])
@@ -96,7 +98,7 @@ export function registerChatTool(server: McpServer, client: DeepSeekClient): voi
           'Controls which tool the model calls. "auto" (default), "none", "required", or {type:"function",function:{name:"..."}}'
         ),
         thinking: ThinkingSchema.describe(
-          'Enable thinking mode for enhanced reasoning. When enabled, temperature/top_p/frequency_penalty/presence_penalty are automatically ignored. Use {type: "enabled"} to activate.'
+          'Enable thinking mode. When enabled, temperature/top_p/frequency_penalty/presence_penalty are automatically ignored. Use {type: "enabled"} to activate.'
         ),
         json_mode: z
           .boolean()
@@ -147,10 +149,21 @@ export function registerChatTool(server: McpServer, client: DeepSeekClient): voi
         // Validate input with extended schema (supports tools + session_id)
         const validated = ChatInputWithToolsSchema.parse(input);
 
+        // Multimodal guard: reject array content when multimodal is disabled
+        if (!getConfig().enableMultimodal) {
+          for (const msg of validated.messages) {
+            if (Array.isArray(msg.content)) {
+              throw new Error(
+                'Multimodal content (image/array) is not enabled. Set ENABLE_MULTIMODAL=true to use multimodal input.'
+              );
+            }
+          }
+        }
+
         // JSON mode guard: warn if "json" word is not in any message content
         if (validated.json_mode) {
           const hasJsonWord = validated.messages.some((m) =>
-            m.content.toLowerCase().includes('json')
+            getTextContent(m.content).toLowerCase().includes('json')
           );
           if (!hasJsonWord) {
             console.error(
@@ -216,8 +229,8 @@ export function registerChatTool(server: McpServer, client: DeepSeekClient): voi
           `[DeepSeek MCP] Response: tokens=${response.usage.total_tokens}, finish_reason=${response.finish_reason}${response.tool_calls ? `, tool_calls=${response.tool_calls.length}` : ''}`
         );
 
-        // Calculate cost
-        const costBreakdown = calculateCost(response.usage);
+        // Calculate cost (model-aware pricing)
+        const costBreakdown = calculateCost(response.usage, response.model);
 
         // Update session with new messages and response
         if (validated.session_id) {

@@ -21,6 +21,7 @@ const ConfigSchema = z.object({
   circuitBreakerThreshold: z.number().positive().default(5),
   circuitBreakerResetTimeout: z.number().positive().default(30000),
   maxSessionMessages: z.number().positive().default(200),
+  enableMultimodal: z.boolean().default(false),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -64,6 +65,7 @@ export function loadConfig(): Config {
     maxSessionMessages: process.env.MAX_SESSION_MESSAGES
       ? parseInt(process.env.MAX_SESSION_MESSAGES, 10)
       : 200,
+    enableMultimodal: process.env.ENABLE_MULTIMODAL === 'true',
   };
 
   const result = ConfigSchema.safeParse(raw);

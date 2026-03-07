@@ -2,18 +2,45 @@
  * Cost Calculation Module
  * Handles pricing and cost formatting for DeepSeek API requests
  *
- * DeepSeek V3.2 unified pricing (both deepseek-chat and deepseek-reasoner):
- * - Cache hit input: $0.028/1M tokens
- * - Cache miss input: $0.28/1M tokens
- * - Output: $0.42/1M tokens
+ * Model-aware pricing per 1M tokens (USD):
+ * - deepseek-chat / deepseek-reasoner (V3.2): cache hit $0.028, cache miss $0.28, output $0.42
+ * - New models can be added to MODEL_PRICING as they become available
  */
 
-/** DeepSeek V3.2 unified pricing per 1M tokens (USD) */
-export const PRICING = {
+/**
+ * Pricing structure for a model
+ */
+export interface ModelPricing {
+  cache_hit: number;
+  cache_miss: number;
+  output: number;
+}
+
+/** Default pricing (V3.2 unified) — used for unknown models */
+export const DEFAULT_PRICING: ModelPricing = {
   cache_hit: 0.028,
   cache_miss: 0.28,
   output: 0.42,
-} as const;
+};
+
+/** Backward-compatible alias */
+export const PRICING = DEFAULT_PRICING;
+
+/** Per-model pricing map. Add new models here as they become available. */
+export const MODEL_PRICING: Record<string, ModelPricing> = {
+  'deepseek-chat': { cache_hit: 0.028, cache_miss: 0.28, output: 0.42 },
+  'deepseek-reasoner': { cache_hit: 0.028, cache_miss: 0.28, output: 0.42 },
+};
+
+/**
+ * Get pricing for a specific model. Falls back to DEFAULT_PRICING for unknown models.
+ */
+export function getPricing(model?: string): ModelPricing {
+  if (model && model in MODEL_PRICING) {
+    return MODEL_PRICING[model];
+  }
+  return DEFAULT_PRICING;
+}
 
 /**
  * Cost breakdown for a request
@@ -36,13 +63,15 @@ export function calculateCost(usage: {
   completion_tokens: number;
   prompt_cache_hit_tokens?: number;
   prompt_cache_miss_tokens?: number;
-}): CostBreakdown {
+}, model?: string): CostBreakdown {
   const {
     prompt_tokens,
     completion_tokens,
     prompt_cache_hit_tokens,
     prompt_cache_miss_tokens,
   } = usage;
+
+  const pricing = getPricing(model);
 
   let inputCost: number;
   let cacheHitRatio: number | undefined;
@@ -52,11 +81,11 @@ export function calculateCost(usage: {
     prompt_cache_hit_tokens !== undefined &&
     prompt_cache_miss_tokens !== undefined
   ) {
-    // V3.2 cache-aware pricing
+    // Cache-aware pricing
     const hitCost =
-      (prompt_cache_hit_tokens / 1_000_000) * PRICING.cache_hit;
+      (prompt_cache_hit_tokens / 1_000_000) * pricing.cache_hit;
     const missCost =
-      (prompt_cache_miss_tokens / 1_000_000) * PRICING.cache_miss;
+      (prompt_cache_miss_tokens / 1_000_000) * pricing.cache_miss;
     inputCost = hitCost + missCost;
 
     if (prompt_tokens > 0) {
@@ -64,14 +93,14 @@ export function calculateCost(usage: {
     }
 
     // Savings = what all-miss would cost minus actual cost
-    const allMissCost = (prompt_tokens / 1_000_000) * PRICING.cache_miss;
+    const allMissCost = (prompt_tokens / 1_000_000) * pricing.cache_miss;
     cacheSavings = allMissCost - inputCost;
   } else {
     // Backward compatible: treat all input as cache miss
-    inputCost = (prompt_tokens / 1_000_000) * PRICING.cache_miss;
+    inputCost = (prompt_tokens / 1_000_000) * pricing.cache_miss;
   }
 
-  const outputCost = (completion_tokens / 1_000_000) * PRICING.output;
+  const outputCost = (completion_tokens / 1_000_000) * pricing.output;
 
   return {
     inputCost,

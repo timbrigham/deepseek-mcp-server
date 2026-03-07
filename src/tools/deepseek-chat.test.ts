@@ -287,6 +287,104 @@ describe('tools/deepseek-chat', () => {
     );
   });
 
+  it('should reject multimodal content when ENABLE_MULTIMODAL is false', async () => {
+    const { DeepSeekClient } = await import('../deepseek-client.js');
+    const client = new DeepSeekClient();
+    registerChatTool(mockServer as any, client);
+
+    const handler = mockServer.tools.get('deepseek_chat')!.handler;
+    const mockError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const result = await handler({
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Describe this' },
+            { type: 'image_url', image_url: { url: 'https://example.com/img.png' } },
+          ],
+        },
+      ],
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('Multimodal content');
+    expect(result.content[0].text).toContain('ENABLE_MULTIMODAL');
+    mockError.mockRestore();
+  });
+
+  it('should accept multimodal content when ENABLE_MULTIMODAL is true', async () => {
+    resetConfig();
+    process.env.DEEPSEEK_API_KEY = 'test-key';
+    process.env.ENABLE_MULTIMODAL = 'true';
+    loadConfig();
+
+    mockCreate.mockResolvedValue({
+      choices: [
+        {
+          message: { content: 'I see a cat', tool_calls: undefined },
+          finish_reason: 'stop',
+        },
+      ],
+      model: 'deepseek-chat',
+      usage: { prompt_tokens: 20, completion_tokens: 5, total_tokens: 25 },
+    });
+
+    const { DeepSeekClient } = await import('../deepseek-client.js');
+    const client = new DeepSeekClient();
+    registerChatTool(mockServer as any, client);
+
+    const handler = mockServer.tools.get('deepseek_chat')!.handler;
+    const result = await handler({
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'What is in this image?' },
+            { type: 'image_url', image_url: { url: 'https://example.com/cat.jpg' } },
+          ],
+        },
+      ],
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(result.content[0].text).toContain('I see a cat');
+
+    // Clean up
+    delete process.env.ENABLE_MULTIMODAL;
+  });
+
+  it('should validate message length for multimodal array content', async () => {
+    resetConfig();
+    process.env.DEEPSEEK_API_KEY = 'test-key';
+    process.env.ENABLE_MULTIMODAL = 'true';
+    loadConfig();
+
+    const { DeepSeekClient } = await import('../deepseek-client.js');
+    const client = new DeepSeekClient();
+    registerChatTool(mockServer as any, client);
+
+    const handler = mockServer.tools.get('deepseek_chat')!.handler;
+    const mockError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const result = await handler({
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'x'.repeat(100_001) },
+          ],
+        },
+      ],
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('maximum length');
+
+    mockError.mockRestore();
+    delete process.env.ENABLE_MULTIMODAL;
+  });
+
   it('should show cache info in cost display', async () => {
     mockCreate.mockResolvedValue({
       choices: [

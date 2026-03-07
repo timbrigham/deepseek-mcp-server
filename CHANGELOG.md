@@ -16,6 +16,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Nothing yet
 
+## [1.4.0] - 2026-03-07
+
+### Added
+- **Model-Aware Pricing**: `MODEL_PRICING` map with per-model pricing, `getPricing(model?)` helper. `calculateCost()` now accepts optional `model` parameter for accurate per-model cost calculation.
+- **Multimodal Content Types**: `TextContentPart`, `ImageContentPart`, `ContentPart` types. Message `content` now supports `string | ContentPart[]` (OpenAI-compatible format).
+- **Multimodal Schema Validation**: `ContentPartSchema` (discriminated union), `ContentSchema`, `ExtendedMessageSchema` with array content support.
+- **ENABLE_MULTIMODAL Config**: Feature flag (default: `false`) to enable multimodal input. Rejects array content when disabled with clear error message.
+- **getTextContent() Helper**: Extracts text from `string | ContentPart[]` for validation and JSON mode checks.
+- **MCP Registry Metadata**: `server.json` file for official MCP Registry submission with tools, resources, prompts, and configuration metadata.
+- **241 Tests**: Up from 212, with 29 new tests covering model-aware pricing, multimodal schemas, content part validation, getTextContent, multimodal guard, and array content validation.
+
+### Changed
+- **Flexible Fallback Chain**: `FALLBACK_ORDER` (Record<string, string[]>) replaces `FALLBACK_MODEL` — supports 3+ model fallback chains for future model additions.
+- **Models Resource**: `buildModelsData()` now uses `getPricing()` from cost.ts instead of static pricing constants.
+- **Tool Handler**: `calculateCost()` now receives `response.model` for model-aware pricing. `validateMessageLength` uses `getTextContent()` for multimodal content.
+- **Config Resource**: Exposes `enableMultimodal` field.
+
 ## [1.3.3] - 2026-03-07
 
 ### Added
@@ -35,7 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **OpenAI SDK v6**: Upgraded from v4.104.0 to v6.27.0. No breaking changes for our usage — `chat.completions.create()` API unchanged.
-- **Zod v4**: Upgraded from v3.25.76 to v4.3.6. 14x faster string parsing, 7x faster array, 6.5x faster object parsing. Fixed `z.record()` call for v4 compatibility.
+- **Zod v4**: Upgraded from v3.25.76 to v4.3.6. Fixed `z.record()` call for v4 compatibility.
 - **New Config**: `DEFAULT_MODEL` env variable (default: `deepseek-chat`) for configurable default model.
 - **Keywords**: Added `gemini-cli`, `mcp-server` to npm package keywords.
 
@@ -74,7 +91,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.2.0] - 2026-02-26
 
 ### Added
-- **Thinking Mode**: Enable enhanced reasoning on deepseek-chat with `thinking: {type: "enabled"}` parameter. Automatically filters incompatible params (temperature, top_p, etc.) with logged warnings.
+- **Thinking Mode**: Enable thinking on deepseek-chat with `thinking: {type: "enabled"}` parameter. Automatically filters incompatible params (temperature, top_p, etc.) with logged warnings.
 - **JSON Output Mode**: Structured JSON responses with `json_mode: true`. Supported by both models. Warns if "json" word missing from prompt.
 - **Cache-Aware Cost Tracking**: V3.2 API returns `prompt_cache_hit_tokens` and `prompt_cache_miss_tokens`. Cost display now shows cache hit ratio and savings.
 - **CostBreakdown Interface**: `calculateCost()` returns structured `{inputCost, outputCost, totalCost, cacheHitRatio?, cacheSavings?}` instead of flat number.
@@ -226,6 +243,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
+- **1.4.0** (2026-03-07): Model-aware pricing, multimodal content types, flexible fallback chain, MCP Registry, 241 tests
 - **1.3.3** (2026-03-07): Streaming fallback tests, session tool_calls fix, configurable circuit breaker, session message limit, 212 tests
 - **1.3.2** (2026-03-06): OpenAI SDK v6, Zod v4, DEFAULT_MODEL config
 - **1.3.1** (2026-03-06): Security fixes, session tool tests, 208 tests
@@ -243,7 +261,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [GitHub repository](https://github.com/arikusi/deepseek-mcp-server)
 - [Issue tracker](https://github.com/arikusi/deepseek-mcp-server/issues)
 
-[Unreleased]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.3.3...HEAD
+[Unreleased]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.3.3...v1.4.0
 [1.3.3]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.3.2...v1.3.3
 [1.3.2]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.3.0...v1.3.1

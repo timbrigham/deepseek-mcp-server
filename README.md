@@ -7,7 +7,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
 [![Build Status](https://github.com/arikusi/deepseek-mcp-server/workflows/CI/badge.svg)](https://github.com/arikusi/deepseek-mcp-server/actions)
 
-A Model Context Protocol (MCP) server that integrates DeepSeek AI models with MCP-compatible clients. Access DeepSeek's powerful chat and reasoning models with multi-turn sessions, automatic model fallback, and MCP Resources directly from your development environment.
+MCP server for DeepSeek AI models (Chat + Reasoner). Supports multi-turn sessions, model fallback with circuit breaker, function calling, thinking mode, JSON output, multimodal input, and cost tracking.
 
 **Compatible with:**
 - Claude Code CLI
@@ -52,15 +52,16 @@ That's it! Your MCP client can now use DeepSeek models!
 - **Multi-Turn Sessions**: Conversation context preserved across requests via `session_id` parameter
 - **Model Fallback & Circuit Breaker**: Automatic fallback between models with circuit breaker protection against cascading failures
 - **MCP Resources**: `deepseek://models`, `deepseek://config`, `deepseek://usage` — query model info, config, and usage stats
-- **Thinking Mode**: Enable enhanced reasoning on deepseek-chat with `thinking: {type: "enabled"}`
+- **Thinking Mode**: Enable thinking on deepseek-chat with `thinking: {type: "enabled"}`
 - **JSON Output Mode**: Structured JSON responses with `json_mode: true`
 - **Function Calling**: OpenAI-compatible tool use with up to 128 tool definitions
 - **Cache-Aware Cost Tracking**: Automatic cost calculation with cache hit/miss breakdown
 - **Session Management Tool**: List, delete, and clear sessions via `deepseek_sessions` tool
 - **Configurable**: Environment-based configuration with validation
-- **12 Prompt Templates**: Pre-built templates for debugging, code review, function calling, and more
+- **12 Prompt Templates**: Templates for debugging, code review, function calling, and more
 - **Streaming Support**: Real-time response generation
-- **Tested**: 212 tests with 90%+ code coverage
+- **Multimodal Ready**: Content part types for text + image input (enable with `ENABLE_MULTIMODAL=true`)
+- **Tested**: 241 tests with 90%+ code coverage
 - **Type-Safe**: Full TypeScript implementation
 - **MCP Compatible**: Works with any MCP-compatible CLI (Claude Code, Gemini CLI, etc.)
 
@@ -152,7 +153,7 @@ Chat with DeepSeek AI models with automatic cost tracking and function calling s
 - `stream` (optional): Enable streaming mode (default: false)
 - `tools` (optional): Array of tool definitions for function calling (max 128)
 - `tool_choice` (optional): "auto" | "none" | "required" | `{type: "function", function: {name: "..."}}`
-- `thinking` (optional): Enable thinking mode `{type: "enabled"}` for enhanced reasoning
+- `thinking` (optional): Enable thinking mode `{type: "enabled"}`
 - `json_mode` (optional): Enable JSON output mode (supported by both models)
 - `session_id` (optional): Session ID for multi-turn conversations. Previous context is automatically prepended.
 
@@ -244,7 +245,7 @@ When the model decides to call a function, the response includes `tool_calls` wi
 }
 ```
 
-When thinking mode is enabled, `temperature`, `top_p`, `frequency_penalty`, and `presence_penalty` are automatically ignored. The model provides enhanced reasoning capabilities similar to deepseek-reasoner.
+When thinking mode is enabled, `temperature`, `top_p`, `frequency_penalty`, and `presence_penalty` are automatically ignored.
 
 **JSON Output Mode Example:**
 
@@ -319,7 +320,7 @@ Fallback can be disabled with `FALLBACK_ENABLED=false`.
 
 ## Available Prompts
 
-Pre-built prompt templates for common tasks (12 total):
+Prompt templates (12 total):
 
 ### Core Reasoning
 - **debug_with_reasoning**: Debug code with step-by-step analysis
@@ -386,6 +387,7 @@ The server is configured via environment variables. All settings except `DEEPSEE
 | `CIRCUIT_BREAKER_THRESHOLD` | `5` | Consecutive failures before circuit opens |
 | `CIRCUIT_BREAKER_RESET_TIMEOUT` | `30000` | Milliseconds before circuit half-opens |
 | `MAX_SESSION_MESSAGES` | `200` | Max messages per session (sliding window) |
+| `ENABLE_MULTIMODAL` | `false` | Enable multimodal (image) input support |
 
 **Example with custom config:**
 ```bash

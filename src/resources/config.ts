@@ -41,6 +41,7 @@ export function registerConfigResource(server: McpServer): void {
         circuitBreakerThreshold: config.circuitBreakerThreshold,
         circuitBreakerResetTimeout: config.circuitBreakerResetTimeout,
         maxSessionMessages: config.maxSessionMessages,
+        enableMultimodal: config.enableMultimodal,
       };
 
       return {

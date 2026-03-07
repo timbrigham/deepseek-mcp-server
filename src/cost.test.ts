@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateCost, formatCost, PRICING } from './cost.js';
+import { calculateCost, formatCost, PRICING, MODEL_PRICING, DEFAULT_PRICING, getPricing } from './cost.js';
 
 describe('cost', () => {
   describe('PRICING', () => {
@@ -7,6 +7,39 @@ describe('cost', () => {
       expect(PRICING.cache_hit).toBe(0.028);
       expect(PRICING.cache_miss).toBe(0.28);
       expect(PRICING.output).toBe(0.42);
+    });
+
+    it('should have PRICING as alias for DEFAULT_PRICING', () => {
+      expect(PRICING).toBe(DEFAULT_PRICING);
+    });
+  });
+
+  describe('MODEL_PRICING', () => {
+    it('should have pricing for deepseek-chat', () => {
+      expect(MODEL_PRICING['deepseek-chat']).toBeDefined();
+      expect(MODEL_PRICING['deepseek-chat'].cache_hit).toBe(0.028);
+    });
+
+    it('should have pricing for deepseek-reasoner', () => {
+      expect(MODEL_PRICING['deepseek-reasoner']).toBeDefined();
+      expect(MODEL_PRICING['deepseek-reasoner'].output).toBe(0.42);
+    });
+  });
+
+  describe('getPricing', () => {
+    it('should return model-specific pricing for known models', () => {
+      const pricing = getPricing('deepseek-chat');
+      expect(pricing).toBe(MODEL_PRICING['deepseek-chat']);
+    });
+
+    it('should return DEFAULT_PRICING for unknown models', () => {
+      const pricing = getPricing('some-future-model');
+      expect(pricing).toBe(DEFAULT_PRICING);
+    });
+
+    it('should return DEFAULT_PRICING when model is undefined', () => {
+      const pricing = getPricing();
+      expect(pricing).toBe(DEFAULT_PRICING);
     });
   });
 
@@ -113,6 +146,31 @@ describe('cost', () => {
       });
       expect(result.inputCost).toBe(0);
       expect(result.cacheHitRatio).toBeUndefined();
+    });
+
+    it('should accept model parameter for model-aware pricing', () => {
+      const result = calculateCost({
+        prompt_tokens: 1_000_000,
+        completion_tokens: 1_000_000,
+      }, 'deepseek-chat');
+      // Same pricing as default for now
+      expect(result.totalCost).toBeCloseTo(0.70);
+    });
+
+    it('should use DEFAULT_PRICING for unknown model', () => {
+      const result = calculateCost({
+        prompt_tokens: 1_000_000,
+        completion_tokens: 1_000_000,
+      }, 'unknown-model');
+      expect(result.totalCost).toBeCloseTo(0.70);
+    });
+
+    it('should work without model parameter (backward compat)', () => {
+      const result = calculateCost({
+        prompt_tokens: 1_000_000,
+        completion_tokens: 1_000_000,
+      });
+      expect(result.totalCost).toBeCloseTo(0.70);
     });
   });
 

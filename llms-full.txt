@@ -1,6 +1,6 @@
 # DeepSeek MCP Server - Complete Documentation
 
-A Model Context Protocol (MCP) server that integrates DeepSeek V3.2 AI models with MCP-compatible clients like Claude Code and Gemini CLI. Provides multi-turn sessions, model fallback with circuit breaker, MCP Resources, chat completion, thinking mode, JSON output, function calling, cache-aware cost tracking, and 12 prompt templates.
+A Model Context Protocol (MCP) server that integrates DeepSeek AI models with MCP-compatible clients like Claude Code and Gemini CLI. Provides multi-turn sessions, model fallback with circuit breaker, MCP Resources, chat completion, thinking mode, JSON output, function calling, multimodal content support, model-aware cost tracking, and 12 prompt templates.
 
 ## Installation
 
@@ -41,14 +41,14 @@ Both models run DeepSeek-V3.2 with unified pricing.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| messages | Array<{role, content, tool_call_id?}> | Yes | - | Conversation messages. Roles: system, user, assistant, tool |
+| messages | Array<{role, content, tool_call_id?}> | Yes | - | Conversation messages. Roles: system, user, assistant, tool. Content can be string or array of content parts (text/image_url) when multimodal is enabled |
 | model | "deepseek-chat" \| "deepseek-reasoner" | No | "deepseek-chat" | Model to use |
 | temperature | number (0-2) | No | 1.0 | Sampling temperature. Ignored when thinking enabled |
 | max_tokens | number (1-65536) | No | model max | Max tokens: chat=8192, reasoner=65536. Both have 128K context |
 | stream | boolean | No | false | Enable streaming mode |
 | tools | Array<ToolDefinition> (max 128) | No | - | Function calling tool definitions |
 | tool_choice | "auto" \| "none" \| "required" \| {type, function} | No | "auto" | Which tool to call |
-| thinking | {type: "enabled" \| "disabled"} | No | - | Enable thinking mode for enhanced reasoning |
+| thinking | {type: "enabled" \| "disabled"} | No | - | Enable thinking mode |
 | json_mode | boolean | No | false | Enable JSON output mode (supported by both models) |
 | session_id | string | No | - | Session ID for multi-turn conversations |
 
@@ -74,7 +74,7 @@ Sessions are stored in memory for the lifetime of the MCP server process. They e
 
 ### Thinking Mode
 
-Enable enhanced reasoning on deepseek-chat:
+Enable thinking mode on deepseek-chat:
 
 ```json
 {
@@ -283,14 +283,18 @@ src/
 | SESSION_TTL_MINUTES | 30 | Session time-to-live in minutes |
 | MAX_SESSIONS | 100 | Maximum concurrent sessions |
 | FALLBACK_ENABLED | true | Enable automatic model fallback |
+| CIRCUIT_BREAKER_THRESHOLD | 5 | Consecutive failures before circuit opens |
+| CIRCUIT_BREAKER_RESET_TIMEOUT | 30000 | Milliseconds before circuit half-opens |
+| MAX_SESSION_MESSAGES | 200 | Max messages per session (sliding window) |
+| ENABLE_MULTIMODAL | false | Enable multimodal (image) input support |
 
 ## Tech Stack
 
 - TypeScript 5.7 (strict mode)
 - @modelcontextprotocol/sdk for MCP protocol
 - OpenAI SDK v6 for API compatibility
-- Zod v4 for validation (14x faster parsing)
-- Vitest for testing (212 tests)
+- Zod v4 for validation
+- Vitest for testing (241 tests)
 - Node.js 18+
 
 ## Links

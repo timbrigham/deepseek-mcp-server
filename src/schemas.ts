@@ -5,6 +5,31 @@
 
 import { z } from 'zod';
 
+// ─── Multimodal Content Schemas ─────────────────────────────────
+
+export const TextContentPartSchema = z.object({
+  type: z.literal('text'),
+  text: z.string(),
+});
+
+export const ImageContentPartSchema = z.object({
+  type: z.literal('image_url'),
+  image_url: z.object({
+    url: z.string(),
+    detail: z.enum(['auto', 'low', 'high']).optional(),
+  }),
+});
+
+export const ContentPartSchema = z.discriminatedUnion('type', [
+  TextContentPartSchema,
+  ImageContentPartSchema,
+]);
+
+export const ContentSchema = z.union([
+  z.string(),
+  z.array(ContentPartSchema).min(1),
+]);
+
 // ─── Base Schemas ───────────────────────────────────────────────
 
 export const MessageSchema = z.object({
@@ -54,7 +79,7 @@ export const ToolChoiceSchema = z.union([
 
 export const ExtendedMessageSchema = z.object({
   role: z.enum(['system', 'user', 'assistant', 'tool']),
-  content: z.string(),
+  content: ContentSchema,
   tool_call_id: z.string().optional(),
 });
 

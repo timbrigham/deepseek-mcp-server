@@ -15,7 +15,6 @@ import { CircuitBreaker } from './circuit-breaker.js';
 import type {
   ChatCompletionParams,
   ChatCompletionResponse,
-  DeepSeekModel,
   DeepSeekRawResponse,
   DeepSeekStreamChunk,
   FallbackInfo,
@@ -31,10 +30,14 @@ const THINKING_INCOMPATIBLE_PARAMS = [
   'presence_penalty',
 ] as const;
 
-/** Fallback model mapping */
-const FALLBACK_MODEL: Record<DeepSeekModel, DeepSeekModel> = {
-  'deepseek-reasoner': 'deepseek-chat',
-  'deepseek-chat': 'deepseek-reasoner',
+/**
+ * Fallback order per model. Each model lists fallback candidates in priority order.
+ * When a model fails with a retryable error, the first available fallback is tried.
+ * Add new models here as they become available in the API.
+ */
+const FALLBACK_ORDER: Record<string, string[]> = {
+  'deepseek-chat': ['deepseek-reasoner'],
+  'deepseek-reasoner': ['deepseek-chat'],
 };
 
 /** Extended response with optional fallback info */
@@ -219,16 +222,17 @@ export class DeepSeekClient {
       });
       return result;
     } catch (error: unknown) {
-      // Try fallback if enabled and error is retryable
-      if (config.fallbackEnabled && isRetryableError(error)) {
-        const fallbackModel = FALLBACK_MODEL[params.model];
+      // Try fallback if enabled, error is retryable, and fallback candidates exist
+      const fallbackCandidates = FALLBACK_ORDER[params.model];
+      if (config.fallbackEnabled && isRetryableError(error) && fallbackCandidates?.length) {
+        const fallbackModel = fallbackCandidates[0];
         const reason = getErrorMessage(error);
         console.error(
           `[DeepSeek MCP] Primary model ${params.model} failed (${reason}), falling back to ${fallbackModel}`
         );
 
         try {
-          const fallbackParams = { ...params, model: fallbackModel };
+          const fallbackParams = { ...params, model: fallbackModel as ChatCompletionParams['model'] };
           // Fallback bypasses circuit breaker (it's a different attempt)
           const requestParams = this.buildRequestParams(fallbackParams, false);
           const rawResponse = await this.client.chat.completions.create(requestParams);
@@ -274,15 +278,16 @@ export class DeepSeekClient {
       });
       return result;
     } catch (error: unknown) {
-      if (config.fallbackEnabled && isRetryableError(error)) {
-        const fallbackModel = FALLBACK_MODEL[params.model];
+      const fallbackCandidates = FALLBACK_ORDER[params.model];
+      if (config.fallbackEnabled && isRetryableError(error) && fallbackCandidates?.length) {
+        const fallbackModel = fallbackCandidates[0];
         const reason = getErrorMessage(error);
         console.error(
           `[DeepSeek MCP] Streaming primary ${params.model} failed (${reason}), falling back to ${fallbackModel}`
         );
 
         try {
-          const fallbackParams = { ...params, model: fallbackModel };
+          const fallbackParams = { ...params, model: fallbackModel as ChatCompletionParams['model'] };
           const result = await this.streamInternal(fallbackParams);
           return {
             ...result,
@@ -393,7 +398,7 @@ export class DeepSeekClient {
     return {
       content: fullContent,
       reasoning_content: reasoningContent || undefined,
-      model: modelName as DeepSeekModel,
+      model: modelName,
       usage,
       finish_reason: finishReason,
       tool_calls: toolCalls,
