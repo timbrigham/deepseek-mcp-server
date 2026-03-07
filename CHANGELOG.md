@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.3] - 2026-03-07
+
+### Fixed
+- **MCP Registry**: Shortened server.json description to meet 100-char limit
+
 ## [1.4.2] - 2026-03-07
 
 ### Added
@@ -259,6 +264,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
+- **1.4.3** (2026-03-07): MCP Registry description fix
 - **1.4.2** (2026-03-07): Streamable HTTP transport, Docker support, health endpoint, 253 tests
 - **1.4.0** (2026-03-07): Model-aware pricing, multimodal content types, flexible fallback chain, MCP Registry, 241 tests
 - **1.3.3** (2026-03-07): Streaming fallback tests, session tool_calls fix, configurable circuit breaker, session message limit, 212 tests
@@ -278,7 +284,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [GitHub repository](https://github.com/arikusi/deepseek-mcp-server)
 - [Issue tracker](https://github.com/arikusi/deepseek-mcp-server/issues)
 
-[Unreleased]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.4.2...HEAD
+[Unreleased]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.4.3...HEAD
+[1.4.3]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.4.2...v1.4.3
 [1.4.2]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.3.3...v1.4.0
