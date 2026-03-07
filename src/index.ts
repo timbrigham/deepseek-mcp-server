@@ -82,6 +82,19 @@ process.on('unhandledRejection', (reason, promise) => {
   process.exit(1);
 });
 
+// Smithery sandbox: allows scanning tools/resources without real credentials
+export function createSandboxServer() {
+  process.env.DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || 'sandbox-key';
+  process.env.SKIP_CONNECTION_TEST = 'true';
+  loadConfig();
+  const client = new DeepSeekClient();
+  const server = createServer();
+  registerAllTools(server, client);
+  registerAllPrompts(server);
+  registerAllResources(server);
+  return server;
+}
+
 // Start the server
 main().catch((error) => {
   console.error('[DeepSeek MCP] Fatal error:', error);

@@ -4,10 +4,18 @@
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { createRequire } from 'module';
+import { readFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 
-const require = createRequire(import.meta.url);
-const { version } = require('../package.json');
+let version = '1.4.0';
+try {
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'));
+  version = pkg.version;
+} catch {
+  // CJS bundler fallback (e.g., Smithery) — uses hardcoded version
+}
 
 export { version };
 
