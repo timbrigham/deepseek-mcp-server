@@ -517,6 +517,8 @@ https://deepseek-mcp.tahirl.com/mcp
 
 Send your DeepSeek API key as `Authorization: Bearer <key>`. No server-side API key stored — your key is used directly per request. Powered by Cloudflare Workers (global edge, zero cold start).
 
+> **Note:** The `deepseek-reasoner` model may take over 30 seconds for complex queries. Some MCP clients (e.g. Claude Code) have built-in tool call timeouts that may interrupt long-running requests. For complex tasks, `deepseek-chat` is recommended.
+
 ```bash
 # Test health
 curl https://deepseek-mcp.tahirl.com/health
