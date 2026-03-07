@@ -102,11 +102,11 @@ function createMcpServer(apiKey: string): McpServer {
     },
     async (params) => {
       try {
-        // Build DeepSeek API request body
+        // Build DeepSeek API request body — always stream to avoid CF timeout
         const body: Record<string, unknown> = {
           model: params.model,
           messages: params.messages,
-          stream: false,
+          stream: true,
         };
         if (params.temperature !== undefined) body.temperature = params.temperature;
         if (params.max_tokens !== undefined) body.max_tokens = params.max_tokens;
@@ -132,22 +132,77 @@ function createMcpServer(apiKey: string): McpServer {
           };
         }
 
-        const data = (await apiResponse.json()) as Record<string, any>;
-        const choice = data.choices?.[0];
-        const message = choice?.message;
-        const usage = data.usage || {};
+        // Read SSE stream and accumulate chunks
+        let content = '';
+        let reasoningContent = '';
+        let model = '';
+        let finishReason = '';
+        let usage: Record<string, number> = {};
+        const toolCalls: Record<number, { id: string; type: string; function: { name: string; arguments: string } }> = {};
+
+        const reader = apiResponse.body!.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const data = line.slice(6).trim();
+            if (data === '[DONE]') continue;
+
+            try {
+              const chunk = JSON.parse(data);
+              if (chunk.model) model = chunk.model;
+              if (chunk.usage) usage = chunk.usage;
+
+              const delta = chunk.choices?.[0]?.delta;
+              if (!delta) {
+                if (chunk.choices?.[0]?.finish_reason) finishReason = chunk.choices[0].finish_reason;
+                continue;
+              }
+
+              if (delta.content) content += delta.content;
+              if (delta.reasoning_content) reasoningContent += delta.reasoning_content;
+              if (delta.finish_reason) finishReason = delta.finish_reason;
+
+              // Accumulate tool calls
+              if (delta.tool_calls) {
+                for (const tc of delta.tool_calls) {
+                  const idx = tc.index ?? 0;
+                  if (!toolCalls[idx]) {
+                    toolCalls[idx] = { id: tc.id || '', type: 'function', function: { name: '', arguments: '' } };
+                  }
+                  if (tc.id) toolCalls[idx].id = tc.id;
+                  if (tc.function?.name) toolCalls[idx].function.name += tc.function.name;
+                  if (tc.function?.arguments) toolCalls[idx].function.arguments += tc.function.arguments;
+                }
+              }
+            } catch {
+              // skip malformed chunks
+            }
+          }
+        }
+
+        const toolCallsArray = Object.values(toolCalls);
         const cost = calculateCost(usage);
 
         // Format response text
         let text = '';
-        if (message?.reasoning_content) {
-          text += `<thinking>\n${message.reasoning_content}\n</thinking>\n\n`;
+        if (reasoningContent) {
+          text += `<thinking>\n${reasoningContent}\n</thinking>\n\n`;
         }
-        text += message?.content || '';
+        text += content;
 
-        if (message?.tool_calls?.length) {
+        if (toolCallsArray.length > 0) {
           text += '\n\n**Function Calls:**\n';
-          for (const tc of message.tool_calls) {
+          for (const tc of toolCallsArray) {
             text += `\`${tc.function.name}\`\n`;
             text += `- Call ID: ${tc.id}\n`;
             text += `- Arguments: ${tc.function.arguments}\n\n`;
@@ -156,18 +211,18 @@ function createMcpServer(apiKey: string): McpServer {
 
         text += `\n---\n**Request Info:**\n`;
         text += `- **Tokens:** ${usage.total_tokens || 0} (${usage.prompt_tokens || 0} prompt + ${usage.completion_tokens || 0} completion)\n`;
-        text += `- **Model:** ${data.model}\n`;
+        text += `- **Model:** ${model}\n`;
         text += `- **Cost:** ${cost.formatted}`;
 
         return {
           content: [{ type: 'text' as const, text }],
           structuredContent: {
-            content: message?.content || '',
-            reasoning_content: message?.reasoning_content,
-            model: data.model,
+            content,
+            reasoning_content: reasoningContent || undefined,
+            model,
             usage,
-            finish_reason: choice?.finish_reason,
-            tool_calls: message?.tool_calls,
+            finish_reason: finishReason,
+            tool_calls: toolCallsArray.length > 0 ? toolCallsArray : undefined,
             cost_usd: parseFloat(cost.totalCost.toFixed(6)),
           } as unknown as Record<string, unknown>,
         };
