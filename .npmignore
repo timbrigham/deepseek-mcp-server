@@ -57,6 +57,9 @@ azure-pipelines.yml
 temp/
 tmpclaude-*
 
+# Smithery
+.smithery/
+
 # Sensitive files
 .claude.json
 .claude/

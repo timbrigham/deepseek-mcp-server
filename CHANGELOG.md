@@ -7,14 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-03-07
+
 ### Added
-- Nothing yet
+- **MCP Registry**: `mcpName` for official MCP Registry (registry.modelcontextprotocol.io) publishing
+- **Glama Registry**: `glama.json` for glama.ai server listing
+- **Smithery Compatibility**: CJS bundler fallback in `server.ts`, `createSandboxServer()` export
 
 ### Changed
-- Nothing yet
-
-### Fixed
-- Nothing yet
+- **server.json**: Updated to official MCP Registry schema format
+- **README**: Added Glama badge
 
 ## [1.4.0] - 2026-03-07
 
