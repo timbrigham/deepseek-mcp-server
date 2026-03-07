@@ -62,6 +62,7 @@ jobs:
           test -f dist/prompts/advanced.js || exit 1
           test -f dist/prompts/function-calling.js || exit 1
           test -f dist/prompts/index.js || exit 1
+          test -f dist/transport-http.js || exit 1
         shell: bash
 
   coverage:
@@ -103,3 +104,24 @@ jobs:
 
       - name: Run TypeScript compiler check
         run: npm run lint
+
+  docker-build:
+    name: Docker Build Smoke Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t deepseek-mcp-server:test .
+
+      - name: Run container and test health endpoint
+        run: |
+          docker run -d --name test-mcp -p 3000:3000 \
+            -e DEEPSEEK_API_KEY=test-key \
+            -e SKIP_CONNECTION_TEST=true \
+            deepseek-mcp-server:test
+          sleep 5
+          curl -f http://localhost:3000/health || exit 1
+          docker stop test-mcp

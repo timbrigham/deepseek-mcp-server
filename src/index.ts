@@ -13,6 +13,7 @@ import { createServer, version } from './server.js';
 import { registerAllTools } from './tools/index.js';
 import { registerAllPrompts } from './prompts/index.js';
 import { registerAllResources } from './resources/index.js';
+import { startHttpTransport } from './transport-http.js';
 
 async function main() {
   // Load and validate configuration
@@ -54,16 +55,28 @@ async function main() {
     }
   }
 
-  // Connect to stdio transport
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
+  if (config.transport === 'http') {
+    // HTTP transport: per-session McpServer, shared DeepSeekClient
+    const serverFactory = () => {
+      const s = createServer();
+      registerAllTools(s, deepseek);
+      registerAllPrompts(s);
+      registerAllResources(s);
+      return s;
+    };
+    await startHttpTransport(serverFactory, config.httpPort);
+  } else {
+    // Stdio transport (default)
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
 
-  console.error('[DeepSeek MCP] Server running on stdio');
-  console.error(
-    '[DeepSeek MCP] Available tools: deepseek_chat (sessions, fallback), deepseek_sessions'
-  );
-  console.error('[DeepSeek MCP] Available prompts: 12 reasoning templates');
-  console.error('[DeepSeek MCP] Available resources: deepseek://models, deepseek://config, deepseek://usage');
+    console.error('[DeepSeek MCP] Server running on stdio');
+    console.error(
+      '[DeepSeek MCP] Available tools: deepseek_chat (sessions, fallback), deepseek_sessions'
+    );
+    console.error('[DeepSeek MCP] Available prompts: 12 reasoning templates');
+    console.error('[DeepSeek MCP] Available resources: deepseek://models, deepseek://config, deepseek://usage');
+  }
 }
 
 // Error handling

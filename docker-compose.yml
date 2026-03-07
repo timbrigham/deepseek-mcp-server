@@ -1,0 +1,10 @@
+services:
+  deepseek-mcp:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - TRANSPORT=http
+      - HTTP_PORT=3000
+    restart: unless-stopped

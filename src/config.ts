@@ -22,6 +22,8 @@ const ConfigSchema = z.object({
   circuitBreakerResetTimeout: z.number().positive().default(30000),
   maxSessionMessages: z.number().positive().default(200),
   enableMultimodal: z.boolean().default(false),
+  transport: z.enum(['stdio', 'http']).default('stdio'),
+  httpPort: z.number().positive().default(3000),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -66,6 +68,8 @@ export function loadConfig(): Config {
       ? parseInt(process.env.MAX_SESSION_MESSAGES, 10)
       : 200,
     enableMultimodal: process.env.ENABLE_MULTIMODAL === 'true',
+    transport: (process.env.TRANSPORT || 'stdio') as 'stdio' | 'http',
+    httpPort: process.env.HTTP_PORT ? parseInt(process.env.HTTP_PORT, 10) : 3000,
   };
 
   const result = ConfigSchema.safeParse(raw);

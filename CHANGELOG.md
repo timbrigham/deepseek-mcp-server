@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-03-07
+
+### Added
+- **Streamable HTTP Transport**: New `TRANSPORT=http` mode with Express-based Streamable HTTP server. Per-session McpServer instances with shared DeepSeekClient. Supports POST/GET/DELETE on `/mcp` endpoint and SSE streaming.
+- **Health Endpoint**: `GET /health` returns server status, version, uptime, and transport type.
+- **Docker Support**: Multi-stage `Dockerfile`, `docker-compose.yml`, and `.dockerignore` for containerized deployment. Default transport is HTTP in Docker.
+- **Docker CI**: GitHub Actions job for Docker build smoke test with health endpoint verification.
+- **New Config Variables**: `TRANSPORT` (stdio|http, default: stdio), `HTTP_PORT` (default: 3000).
+- **253 Tests**: Up from 241, with 12 new tests covering HTTP transport endpoints, config transport/port parsing, and session lifecycle.
+
+### Changed
+- Entry point (`index.ts`) now branches on `config.transport` — stdio (default) or HTTP mode.
+- CI dist check includes `transport-http.js`.
+
 ## [1.4.1] - 2026-03-07
 
 ### Added
@@ -245,6 +259,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
+- **1.4.2** (2026-03-07): Streamable HTTP transport, Docker support, health endpoint, 253 tests
 - **1.4.0** (2026-03-07): Model-aware pricing, multimodal content types, flexible fallback chain, MCP Registry, 241 tests
 - **1.3.3** (2026-03-07): Streaming fallback tests, session tool_calls fix, configurable circuit breaker, session message limit, 212 tests
 - **1.3.2** (2026-03-06): OpenAI SDK v6, Zod v4, DEFAULT_MODEL config
@@ -263,7 +278,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [GitHub repository](https://github.com/arikusi/deepseek-mcp-server)
 - [Issue tracker](https://github.com/arikusi/deepseek-mcp-server/issues)
 
-[Unreleased]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.4.2...HEAD
+[1.4.2]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.4.1...v1.4.2
+[1.4.1]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.3.3...v1.4.0
 [1.3.3]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.3.2...v1.3.3
 [1.3.2]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.3.1...v1.3.2

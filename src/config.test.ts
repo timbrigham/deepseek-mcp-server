@@ -15,6 +15,8 @@ describe('config', () => {
     delete process.env.MAX_RETRIES;
     delete process.env.SKIP_CONNECTION_TEST;
     delete process.env.MAX_MESSAGE_LENGTH;
+    delete process.env.TRANSPORT;
+    delete process.env.HTTP_PORT;
   });
 
   afterEach(() => {
@@ -80,6 +82,38 @@ describe('config', () => {
       process.env.MAX_MESSAGE_LENGTH = '50000';
       const config = loadConfig();
       expect(config.maxMessageLength).toBe(50000);
+    });
+
+    it('should default transport to stdio', () => {
+      process.env.DEEPSEEK_API_KEY = 'test-key';
+      const config = loadConfig();
+      expect(config.transport).toBe('stdio');
+    });
+
+    it('should load TRANSPORT=http from env', () => {
+      process.env.DEEPSEEK_API_KEY = 'test-key';
+      process.env.TRANSPORT = 'http';
+      const config = loadConfig();
+      expect(config.transport).toBe('http');
+    });
+
+    it('should default httpPort to 3000', () => {
+      process.env.DEEPSEEK_API_KEY = 'test-key';
+      const config = loadConfig();
+      expect(config.httpPort).toBe(3000);
+    });
+
+    it('should load HTTP_PORT from env', () => {
+      process.env.DEEPSEEK_API_KEY = 'test-key';
+      process.env.HTTP_PORT = '8080';
+      const config = loadConfig();
+      expect(config.httpPort).toBe(8080);
+    });
+
+    it('should reject invalid TRANSPORT value', () => {
+      process.env.DEEPSEEK_API_KEY = 'test-key';
+      process.env.TRANSPORT = 'websocket';
+      expect(() => loadConfig()).toThrow(ConfigError);
     });
   });
 

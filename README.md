@@ -11,7 +11,7 @@
   <img width="380" height="200" src="https://glama.ai/mcp/servers/@arikusi/deepseek-mcp-server/badge" />
 </a>
 
-MCP server for DeepSeek AI models (Chat + Reasoner). Supports multi-turn sessions, model fallback with circuit breaker, function calling, thinking mode, JSON output, multimodal input, and cost tracking.
+MCP server for DeepSeek AI models (Chat + Reasoner). Supports stdio and HTTP transports, Docker deployment, multi-turn sessions, model fallback with circuit breaker, function calling, thinking mode, JSON output, multimodal input, and cost tracking.
 
 **Compatible with:**
 - Claude Code CLI
@@ -65,7 +65,9 @@ That's it! Your MCP client can now use DeepSeek models!
 - **12 Prompt Templates**: Templates for debugging, code review, function calling, and more
 - **Streaming Support**: Real-time response generation
 - **Multimodal Ready**: Content part types for text + image input (enable with `ENABLE_MULTIMODAL=true`)
-- **Tested**: 241 tests with 90%+ code coverage
+- **HTTP Transport**: Remote access via Streamable HTTP with `TRANSPORT=http`
+- **Docker Ready**: Multi-stage Dockerfile with health checks for containerized deployment
+- **Tested**: 253 tests with 90%+ code coverage
 - **Type-Safe**: Full TypeScript implementation
 - **MCP Compatible**: Works with any MCP-compatible CLI (Claude Code, Gemini CLI, etc.)
 
@@ -392,6 +394,8 @@ The server is configured via environment variables. All settings except `DEEPSEE
 | `CIRCUIT_BREAKER_RESET_TIMEOUT` | `30000` | Milliseconds before circuit half-opens |
 | `MAX_SESSION_MESSAGES` | `200` | Max messages per session (sliding window) |
 | `ENABLE_MULTIMODAL` | `false` | Enable multimodal (image) input support |
+| `TRANSPORT` | `stdio` | Transport mode: `stdio` or `http` |
+| `HTTP_PORT` | `3000` | HTTP server port (when TRANSPORT=http) |
 
 **Example with custom config:**
 ```bash
@@ -419,6 +423,7 @@ deepseek-mcp-server/
 │   ├── session.ts            # In-memory session store (multi-turn)
 │   ├── circuit-breaker.ts    # Circuit breaker pattern
 │   ├── usage-tracker.ts      # Usage statistics tracker
+│   ├── transport-http.ts     # Streamable HTTP transport (Express)
 │   ├── tools/
 │   │   ├── deepseek-chat.ts  # deepseek_chat tool (sessions + fallback)
 │   │   ├── deepseek-sessions.ts # deepseek_sessions tool
@@ -478,6 +483,37 @@ npm start
 ```
 
 The server will start and wait for MCP client connections via stdio.
+
+### HTTP Transport
+
+Run the server as an HTTP endpoint for remote access:
+
+```bash
+TRANSPORT=http HTTP_PORT=3000 DEEPSEEK_API_KEY=your-key node dist/index.js
+```
+
+Test the health endpoint:
+```bash
+curl http://localhost:3000/health
+# → {"status":"ok","version":"1.4.2","uptime":5.2,"transport":"http","timestamp":"..."}
+```
+
+The MCP endpoint is available at `POST /mcp` (Streamable HTTP protocol).
+
+### Docker
+
+```bash
+# Build
+docker build -t deepseek-mcp-server .
+
+# Run
+docker run -d -p 3000:3000 -e DEEPSEEK_API_KEY=your-key deepseek-mcp-server
+
+# Or use docker-compose
+DEEPSEEK_API_KEY=your-key docker compose up -d
+```
+
+The Docker image defaults to HTTP transport on port 3000 with a built-in health check.
 
 ## Troubleshooting
 

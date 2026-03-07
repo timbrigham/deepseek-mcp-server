@@ -1,6 +1,6 @@
 # DeepSeek MCP Server - Complete Documentation
 
-A Model Context Protocol (MCP) server that integrates DeepSeek AI models with MCP-compatible clients like Claude Code and Gemini CLI. Provides multi-turn sessions, model fallback with circuit breaker, MCP Resources, chat completion, thinking mode, JSON output, function calling, multimodal content support, model-aware cost tracking, and 12 prompt templates.
+A Model Context Protocol (MCP) server that integrates DeepSeek AI models with MCP-compatible clients like Claude Code and Gemini CLI. Supports stdio and Streamable HTTP transports with Docker deployment. Provides multi-turn sessions, model fallback with circuit breaker, MCP Resources, chat completion, thinking mode, JSON output, function calling, multimodal content support, model-aware cost tracking, and 12 prompt templates.
 
 ## Installation
 
@@ -13,6 +13,9 @@ gemini mcp add deepseek npx @arikusi/deepseek-mcp-server -e DEEPSEEK_API_KEY=you
 
 # Global npm install
 npm install -g @arikusi/deepseek-mcp-server
+
+# Docker
+docker run -d -p 3000:3000 -e DEEPSEEK_API_KEY=your-key ghcr.io/arikusi/deepseek-mcp-server
 ```
 
 Get API key: https://platform.deepseek.com
@@ -237,6 +240,31 @@ Example output: `$0.0042 (cache hit: 80%, saved ~$0.0168)`
 - function_call_debug(tools_json, messages_json, error?)
 - create_function_schema(description, examples?)
 
+## HTTP Transport
+
+Run as a remote HTTP server instead of stdio:
+
+```bash
+TRANSPORT=http HTTP_PORT=3000 DEEPSEEK_API_KEY=your-key node dist/index.js
+```
+
+Endpoints:
+- `GET /health` — health check (status, version, uptime)
+- `POST /mcp` — MCP JSON-RPC requests (Streamable HTTP protocol)
+- `GET /mcp` — SSE stream (requires Mcp-Session-Id header)
+- `DELETE /mcp` — terminate session
+
+Each MCP session gets its own McpServer instance. DeepSeekClient is shared across sessions.
+
+## Docker
+
+```bash
+docker build -t deepseek-mcp-server .
+docker run -d -p 3000:3000 -e DEEPSEEK_API_KEY=your-key deepseek-mcp-server
+```
+
+Docker defaults to HTTP transport. Health check is built in (wget to /health every 30s).
+
 ## Architecture
 
 ```
@@ -252,6 +280,7 @@ src/
   session.ts            # In-memory session store
   circuit-breaker.ts    # Circuit breaker pattern
   usage-tracker.ts      # Usage statistics tracker
+  transport-http.ts     # Streamable HTTP transport (Express)
   tools/
     deepseek-chat.ts    # deepseek_chat tool (sessions + fallback)
     deepseek-sessions.ts # deepseek_sessions tool
@@ -287,6 +316,8 @@ src/
 | CIRCUIT_BREAKER_RESET_TIMEOUT | 30000 | Milliseconds before circuit half-opens |
 | MAX_SESSION_MESSAGES | 200 | Max messages per session (sliding window) |
 | ENABLE_MULTIMODAL | false | Enable multimodal (image) input support |
+| TRANSPORT | stdio | Transport mode: stdio or http |
+| HTTP_PORT | 3000 | HTTP server port (when TRANSPORT=http) |
 
 ## Tech Stack
 
@@ -294,7 +325,7 @@ src/
 - @modelcontextprotocol/sdk for MCP protocol
 - OpenAI SDK v6 for API compatibility
 - Zod v4 for validation
-- Vitest for testing (241 tests)
+- Vitest for testing (253 tests)
 - Node.js 18+
 
 ## Links
