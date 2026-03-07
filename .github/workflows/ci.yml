@@ -48,8 +48,16 @@ jobs:
           test -f dist/cost.js || exit 1
           test -f dist/schemas.js || exit 1
           test -f dist/errors.js || exit 1
+          test -f dist/circuit-breaker.js || exit 1
+          test -f dist/session.js || exit 1
+          test -f dist/usage-tracker.js || exit 1
           test -f dist/tools/deepseek-chat.js || exit 1
+          test -f dist/tools/deepseek-sessions.js || exit 1
           test -f dist/tools/index.js || exit 1
+          test -f dist/resources/models.js || exit 1
+          test -f dist/resources/config.js || exit 1
+          test -f dist/resources/usage.js || exit 1
+          test -f dist/resources/index.js || exit 1
           test -f dist/prompts/core.js || exit 1
           test -f dist/prompts/advanced.js || exit 1
           test -f dist/prompts/function-calling.js || exit 1
