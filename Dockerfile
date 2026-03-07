@@ -12,7 +12,7 @@ ENV NODE_ENV=production
 ENV TRANSPORT=http
 ENV HTTP_PORT=3000
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --ignore-scripts
 COPY --from=builder /app/dist ./dist
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
