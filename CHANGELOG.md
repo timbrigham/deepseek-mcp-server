@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-03-07
+
+### Added
+- **Remote Endpoint**: Hosted BYOK (Bring Your Own Key) endpoint at `https://deepseek-mcp.tahirl.com/mcp`. Users send their own DeepSeek API key as Bearer token — no server-side key stored.
+- **Cloudflare Worker**: Stateless MCP server on Cloudflare Workers edge network. Zero cold start, global distribution, free tier (100K requests/day).
+- **Remote Quick Start**: Claude Code, Cursor, Windsurf can connect to the remote endpoint with `--transport http` — no npm install or Node.js required.
+
+### Changed
+- README restructured: Remote (no install) as primary quick start, local stdio as secondary.
+- server.json: Added streamableHttp transport package for remote endpoint.
+- llms.txt/llms-full.txt: Updated with remote endpoint documentation.
+
 ## [1.4.3] - 2026-03-07
 
 ### Fixed
@@ -264,6 +276,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
+- **1.5.0** (2026-03-07): Cloudflare Workers remote endpoint (BYOK), deepseek-mcp.tahirl.com
 - **1.4.3** (2026-03-07): MCP Registry description fix
 - **1.4.2** (2026-03-07): Streamable HTTP transport, Docker support, health endpoint, 253 tests
 - **1.4.1** (2026-03-07): MCP Registry, Glama registry, Smithery compatibility
@@ -285,7 +298,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [GitHub repository](https://github.com/arikusi/deepseek-mcp-server)
 - [Issue tracker](https://github.com/arikusi/deepseek-mcp-server/issues)
 
-[Unreleased]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.4.3...HEAD
+[Unreleased]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.4.3...v1.5.0
 [1.4.3]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.4.2...v1.4.3
 [1.4.2]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.4.0...v1.4.1

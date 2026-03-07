@@ -6,12 +6,12 @@
     "url": "https://github.com/arikusi/deepseek-mcp-server",
     "source": "github"
   },
-  "version": "1.4.3",
+  "version": "1.5.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@arikusi/deepseek-mcp-server",
-      "version": "1.4.3",
+      "version": "1.5.0",
       "transport": {
         "type": "stdio"
       },
@@ -19,6 +19,23 @@
         {
           "name": "DEEPSEEK_API_KEY",
           "description": "DeepSeek API key",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    },
+    {
+      "registryType": "custom",
+      "identifier": "deepseek-mcp-worker",
+      "version": "1.5.0",
+      "transport": {
+        "type": "streamableHttp",
+        "url": "https://deepseek-mcp.tahirl.com/mcp"
+      },
+      "environmentVariables": [
+        {
+          "name": "DEEPSEEK_API_KEY",
+          "description": "DeepSeek API key (sent as Bearer token)",
           "isRequired": true,
           "isSecret": true
         }

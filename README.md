@@ -22,31 +22,49 @@ MCP server for DeepSeek AI models (Chat + Reasoner). Supports stdio and HTTP tra
 
 ## Quick Start
 
-### For Claude Code
+### Remote (No Install)
 
+Use the hosted endpoint directly — no npm install, no Node.js required. Bring your own DeepSeek API key:
+
+**Claude Code:**
 ```bash
-# Install and configure with API key (available in all projects)
-claude mcp add -s user deepseek npx @arikusi/deepseek-mcp-server -e DEEPSEEK_API_KEY=your-key-here
-
-# Or install for current project only
-claude mcp add deepseek npx @arikusi/deepseek-mcp-server -e DEEPSEEK_API_KEY=your-key-here
+claude mcp add --transport http deepseek \
+  https://deepseek-mcp.tahirl.com/mcp \
+  --header "Authorization: Bearer YOUR_DEEPSEEK_API_KEY"
 ```
 
-**Scope options:**
+**Cursor / Windsurf / VS Code:**
+```json
+{
+  "mcpServers": {
+    "deepseek": {
+      "url": "https://deepseek-mcp.tahirl.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${DEEPSEEK_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+### Local (stdio)
+
+**Claude Code:**
+```bash
+claude mcp add -s user deepseek npx @arikusi/deepseek-mcp-server -e DEEPSEEK_API_KEY=your-key-here
+```
+
+**Gemini CLI:**
+```bash
+gemini mcp add deepseek npx @arikusi/deepseek-mcp-server -e DEEPSEEK_API_KEY=your-key-here
+```
+
+**Scope options** (Claude Code):
 - `-s user`: Available in all your projects (recommended)
 - `-s local`: Only in current project (default)
 - `-s project`: Project-specific `.mcp.json` file
 
-### For Gemini CLI
-
-```bash
-# Install and configure with API key
-gemini mcp add deepseek npx @arikusi/deepseek-mcp-server -e DEEPSEEK_API_KEY=your-key-here
-```
-
 **Get your API key:** [https://platform.deepseek.com](https://platform.deepseek.com)
-
-That's it! Your MCP client can now use DeepSeek models!
 
 ---
 
@@ -65,7 +83,8 @@ That's it! Your MCP client can now use DeepSeek models!
 - **12 Prompt Templates**: Templates for debugging, code review, function calling, and more
 - **Streaming Support**: Real-time response generation
 - **Multimodal Ready**: Content part types for text + image input (enable with `ENABLE_MULTIMODAL=true`)
-- **HTTP Transport**: Remote access via Streamable HTTP with `TRANSPORT=http`
+- **Remote Endpoint**: Hosted at `deepseek-mcp.tahirl.com/mcp` — BYOK (Bring Your Own Key), no install needed
+- **HTTP Transport**: Self-hosted remote access via Streamable HTTP with `TRANSPORT=http`
 - **Docker Ready**: Multi-stage Dockerfile with health checks for containerized deployment
 - **Tested**: 253 tests with 90%+ code coverage
 - **Type-Safe**: Full TypeScript implementation
@@ -411,6 +430,10 @@ claude mcp add -s user deepseek npx @arikusi/deepseek-mcp-server \
 
 ```
 deepseek-mcp-server/
+├── worker/                  # Cloudflare Worker (remote BYOK endpoint)
+│   ├── src/index.ts         # Worker entry point
+│   ├── wrangler.toml        # Cloudflare config
+│   └── package.json
 ├── src/
 │   ├── index.ts              # Entry point, bootstrap
 │   ├── server.ts             # McpServer factory (auto-version)
@@ -484,9 +507,30 @@ npm start
 
 The server will start and wait for MCP client connections via stdio.
 
-### HTTP Transport
+### Remote Endpoint (Hosted)
 
-Run the server as an HTTP endpoint for remote access:
+A hosted BYOK (Bring Your Own Key) endpoint is available at:
+
+```
+https://deepseek-mcp.tahirl.com/mcp
+```
+
+Send your DeepSeek API key as `Authorization: Bearer <key>`. No server-side API key stored — your key is used directly per request. Powered by Cloudflare Workers (global edge, zero cold start).
+
+```bash
+# Test health
+curl https://deepseek-mcp.tahirl.com/health
+
+# Test MCP (requires auth)
+curl -X POST https://deepseek-mcp.tahirl.com/mcp \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_KEY" \
+  -d '{"jsonrpc":"2.0","method":"initialize","params":{"capabilities":{}},"id":1}'
+```
+
+### HTTP Transport (Self-Hosted)
+
+Run your own HTTP endpoint:
 
 ```bash
 TRANSPORT=http HTTP_PORT=3000 DEEPSEEK_API_KEY=your-key node dist/index.js
@@ -495,7 +539,6 @@ TRANSPORT=http HTTP_PORT=3000 DEEPSEEK_API_KEY=your-key node dist/index.js
 Test the health endpoint:
 ```bash
 curl http://localhost:3000/health
-# → {"status":"ok","version":"1.4.2","uptime":5.2,"transport":"http","timestamp":"..."}
 ```
 
 The MCP endpoint is available at `POST /mcp` (Streamable HTTP protocol).

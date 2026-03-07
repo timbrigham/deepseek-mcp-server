@@ -1,8 +1,31 @@
 # DeepSeek MCP Server - Complete Documentation
 
-A Model Context Protocol (MCP) server that integrates DeepSeek AI models with MCP-compatible clients like Claude Code and Gemini CLI. Supports stdio and Streamable HTTP transports with Docker deployment. Provides multi-turn sessions, model fallback with circuit breaker, MCP Resources, chat completion, thinking mode, JSON output, function calling, multimodal content support, model-aware cost tracking, and 12 prompt templates.
+A Model Context Protocol (MCP) server that integrates DeepSeek AI models with MCP-compatible clients like Claude Code and Gemini CLI. Hosted remote endpoint at deepseek-mcp.tahirl.com/mcp with BYOK (Bring Your Own Key) authentication. Also supports local stdio and self-hosted Streamable HTTP transports with Docker deployment. Provides multi-turn sessions, model fallback with circuit breaker, MCP Resources, chat completion, thinking mode, JSON output, function calling, multimodal content support, model-aware cost tracking, and 12 prompt templates.
 
 ## Installation
+
+### Remote (No Install)
+
+```bash
+# Claude Code — connect to hosted endpoint with your own API key
+claude mcp add --transport http deepseek \
+  https://deepseek-mcp.tahirl.com/mcp \
+  --header "Authorization: Bearer YOUR_DEEPSEEK_API_KEY"
+```
+
+```json
+// Cursor / Windsurf / VS Code
+{
+  "mcpServers": {
+    "deepseek": {
+      "url": "https://deepseek-mcp.tahirl.com/mcp",
+      "headers": { "Authorization": "Bearer ${DEEPSEEK_API_KEY}" }
+    }
+  }
+}
+```
+
+### Local (stdio)
 
 ```bash
 # Claude Code (all projects)
@@ -240,9 +263,20 @@ Example output: `$0.0042 (cache hit: 80%, saved ~$0.0168)`
 - function_call_debug(tools_json, messages_json, error?)
 - create_function_schema(description, examples?)
 
-## HTTP Transport
+## Remote Endpoint (Hosted)
 
-Run as a remote HTTP server instead of stdio:
+A hosted BYOK endpoint is available at: https://deepseek-mcp.tahirl.com/mcp
+
+Send your DeepSeek API key as `Authorization: Bearer <key>`. No server-side key stored. Powered by Cloudflare Workers (global edge, zero cold start, free tier).
+
+Endpoints:
+- `GET /health` — health check (status, version, transport, timestamp)
+- `GET /` — server info (name, version, description, endpoints)
+- `POST /mcp` — MCP JSON-RPC requests (requires Bearer auth)
+
+## HTTP Transport (Self-Hosted)
+
+Run your own HTTP server instead of stdio:
 
 ```bash
 TRANSPORT=http HTTP_PORT=3000 DEEPSEEK_API_KEY=your-key node dist/index.js
