@@ -100,6 +100,13 @@ function createMcpServer(apiKey: string): McpServer {
         .describe('Enable thinking mode'),
       json_mode: z.boolean().optional().describe('Enable JSON output mode'),
     },
+    {
+      title: 'DeepSeek Chat',
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: true,
+    },
     async (params) => {
       try {
         // Build DeepSeek API request body — always stream to avoid CF timeout
@@ -266,6 +273,13 @@ export default {
           {
             name: 'deepseek_chat',
             description: 'Chat with DeepSeek AI models (Chat + Reasoner). Supports function calling, thinking mode, JSON output, cost tracking.',
+            annotations: {
+              title: 'DeepSeek Chat',
+              readOnlyHint: true,
+              destructiveHint: false,
+              idempotentHint: false,
+              openWorldHint: true,
+            },
             inputSchema: {
               type: 'object',
               required: ['messages'],
@@ -284,6 +298,7 @@ export default {
           },
         ],
         auth: { type: 'bearer', description: 'DeepSeek API key as Bearer token' },
+        icon: 'https://raw.githubusercontent.com/arikusi/deepseek-mcp-server/main/icon.png',
         docs: 'https://github.com/arikusi/deepseek-mcp-server',
       });
     }
