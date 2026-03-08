@@ -300,6 +300,8 @@ export default {
         auth: { type: 'bearer', description: 'DeepSeek API key as Bearer token' },
         icon: 'https://raw.githubusercontent.com/arikusi/deepseek-mcp-server/main/icon.png',
         docs: 'https://github.com/arikusi/deepseek-mcp-server',
+      }, {
+        headers: { 'Access-Control-Allow-Origin': '*' },
       });
     }
 
@@ -310,6 +312,8 @@ export default {
         version: VERSION,
         transport: 'cloudflare-workers',
         timestamp: new Date().toISOString(),
+      }, {
+        headers: { 'Access-Control-Allow-Origin': '*' },
       });
     }
 
@@ -322,6 +326,8 @@ export default {
         endpoints: { mcp: '/mcp', health: '/health' },
         auth: 'Send your DeepSeek API key as Authorization: Bearer <key>',
         docs: 'https://github.com/arikusi/deepseek-mcp-server',
+      }, {
+        headers: { 'Access-Control-Allow-Origin': '*' },
       });
     }
 
