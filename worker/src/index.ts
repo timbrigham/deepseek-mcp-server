@@ -254,6 +254,40 @@ export default {
       });
     }
 
+    // MCP Server Card — allows Smithery and other registries to discover capabilities without scanning
+    if (url.pathname === '/.well-known/mcp/server-card.json') {
+      return Response.json({
+        name: 'deepseek-mcp-server',
+        version: VERSION,
+        description: 'MCP server for DeepSeek AI — chat, reasoning, function calling, JSON mode, cost tracking',
+        transport: { type: 'streamable-http', url: 'https://deepseek-mcp.tahirl.com/mcp' },
+        capabilities: { tools: true, prompts: false, resources: false },
+        tools: [
+          {
+            name: 'deepseek_chat',
+            description: 'Chat with DeepSeek AI models (Chat + Reasoner). Supports function calling, thinking mode, JSON output, cost tracking.',
+            inputSchema: {
+              type: 'object',
+              required: ['messages'],
+              properties: {
+                messages: { type: 'array', description: 'Conversation messages', items: { type: 'object' } },
+                model: { type: 'string', enum: ['deepseek-chat', 'deepseek-reasoner'], default: 'deepseek-chat' },
+                temperature: { type: 'number', description: 'Sampling temperature (0-2)' },
+                max_tokens: { type: 'number', description: 'Max tokens to generate' },
+                stream: { type: 'boolean', default: false },
+                tools: { type: 'array', description: 'Tool definitions for function calling' },
+                tool_choice: { description: 'Tool choice control' },
+                thinking: { type: 'object', description: 'Enable thinking mode' },
+                json_mode: { type: 'boolean', description: 'Enable JSON output mode' },
+              },
+            },
+          },
+        ],
+        auth: { type: 'bearer', description: 'DeepSeek API key as Bearer token' },
+        docs: 'https://github.com/arikusi/deepseek-mcp-server',
+      });
+    }
+
     // Health check
     if (url.pathname === '/health') {
       return Response.json({
