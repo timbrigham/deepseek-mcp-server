@@ -278,22 +278,9 @@ export default {
 
     // MCP endpoint
     if (url.pathname === '/mcp') {
+      // BYOK: require API key
       const apiKey = extractApiKey(request);
-
-      // Allow discovery requests (initialize, tools/list, etc.) without auth
-      // Only require API key for actual tool calls (tools/call)
-      let isToolCall = false;
-      if (request.method === 'POST') {
-        try {
-          const cloned = request.clone();
-          const body = await cloned.json() as Record<string, unknown>;
-          isToolCall = body.method === 'tools/call';
-        } catch {
-          // not JSON — let MCP SDK handle the error
-        }
-      }
-
-      if (isToolCall && !apiKey) {
+      if (!apiKey) {
         return Response.json(
           { error: 'Authorization required. Send your DeepSeek API key as: Authorization: Bearer <key>' },
           { status: 401 }
@@ -301,7 +288,7 @@ export default {
       }
 
       // Stateless: create fresh server + transport per request
-      const server = createMcpServer(apiKey || 'anonymous');
+      const server = createMcpServer(apiKey);
       const transport = new WebStandardStreamableHTTPServerTransport({
         sessionIdGenerator: undefined,
         enableJsonResponse: true,
