@@ -4,7 +4,7 @@
 Use DeepSeek Chat & Reasoner models from any MCP client with sessions, fallback & cost tracking.
 
 ## Description
-MCP Server for DeepSeek API integration that enables Claude Code, Gemini CLI, and other MCP-compatible clients to use DeepSeek Chat (V3) and Reasoner (R1) models. Supports multi-turn conversation sessions, function calling, thinking mode, JSON output, model fallback with circuit breaker protection, and real-time cost tracking. Available as both a local stdio server and a hosted remote endpoint (BYOK).
+MCP Server for DeepSeek API integration that enables Claude Code, Gemini CLI, and other MCP-compatible clients to use DeepSeek models for chat and reasoning. Supports multi-turn conversation sessions, function calling, thinking mode, JSON output, model fallback with circuit breaker protection, and real-time cost tracking. Available as both a local stdio server and a hosted remote endpoint (BYOK).
 
 ## Setup Requirements
 - `DEEPSEEK_API_KEY` (required): Your DeepSeek API key. Sign up and generate one at https://platform.deepseek.com
@@ -17,7 +17,7 @@ MCP Server for DeepSeek API integration that enables Claude Code, Gemini CLI, an
 AI & ML
 
 ## Features
-- Chat with DeepSeek V3 (deepseek-chat) and R1 (deepseek-reasoner) models
+- Chat with DeepSeek models (deepseek-chat and deepseek-reasoner)
 - Multi-turn conversation sessions with automatic context management
 - Function calling / tool use support (up to 128 tool definitions)
 - Thinking mode for step-by-step reasoning (deepseek-reasoner)
