@@ -1,33 +1,24 @@
-<p align="center">
-  <img src="icon.png" alt="DeepSeek MCP Server" width="120" />
-</p>
+# DeepSeek MCP Server
 
-<h1 align="center">DeepSeek MCP Server</h1>
+[![npm version](https://img.shields.io/npm/v/@arikusi/deepseek-mcp-server.svg)](https://www.npmjs.com/package/@arikusi/deepseek-mcp-server)
+[![npm downloads](https://img.shields.io/npm/dm/@arikusi/deepseek-mcp-server.svg)](https://www.npmjs.com/package/@arikusi/deepseek-mcp-server)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js Version](https://img.shields.io/node/v/@arikusi/deepseek-mcp-server.svg)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
+[![Build Status](https://github.com/arikusi/deepseek-mcp-server/workflows/CI/badge.svg)](https://github.com/arikusi/deepseek-mcp-server/actions)
 
-<p align="center">
-  MCP server for DeepSeek AI with chat, reasoning, multi-turn sessions, function calling, thinking mode, and cost tracking.
-</p>
+<a href="https://glama.ai/mcp/servers/arikusi/deepseek-mcp-server">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/arikusi/deepseek-mcp-server/badge" />
+</a>
 
-<p align="center">
-  <a href="https://www.npmjs.com/package/@arikusi/deepseek-mcp-server"><img src="https://img.shields.io/npm/v/@arikusi/deepseek-mcp-server.svg" alt="npm version" /></a>
-  <a href="https://www.npmjs.com/package/@arikusi/deepseek-mcp-server"><img src="https://img.shields.io/npm/dm/@arikusi/deepseek-mcp-server.svg" alt="npm downloads" /></a>
-  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
-  <a href="https://nodejs.org/"><img src="https://img.shields.io/node/v/@arikusi/deepseek-mcp-server.svg" alt="Node.js Version" /></a>
-  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-5.7-blue.svg" alt="TypeScript" /></a>
-  <a href="https://github.com/arikusi/deepseek-mcp-server/actions"><img src="https://github.com/arikusi/deepseek-mcp-server/workflows/CI/badge.svg" alt="Build Status" /></a>
-</p>
+MCP server for DeepSeek AI models (Chat + Reasoner). Supports stdio and HTTP transports, Docker deployment, multi-turn sessions, model fallback with circuit breaker, function calling, thinking mode, JSON output, multimodal input, and cost tracking.
 
-<p align="center">
-  Compatible with Claude Code, Gemini CLI, Cursor, Windsurf, and any MCP-compatible client.
-</p>
+**Compatible with:**
+- Claude Code CLI
+- Gemini CLI
+- Any MCP-compatible client (Cursor, Windsurf, etc.)
 
 > **Note**: This is an unofficial community project and is not affiliated with DeepSeek.
-
-<p align="center">
-  <a href="https://glama.ai/mcp/servers/arikusi/deepseek-mcp-server">
-    <img width="380" height="200" src="https://glama.ai/mcp/servers/arikusi/deepseek-mcp-server/badge" alt="Glama Badge" />
-  </a>
-</p>
 
 ## Quick Start
 
