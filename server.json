@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.arikusi/deepseek",
-  "description": "MCP server for DeepSeek AI — chat, reasoning, multi-turn sessions, function calling, thinking mode, model fallback with circuit breaker, and cost tracking",
+  "description": "MCP server for DeepSeek AI with chat, reasoning, sessions, function calling, and cost tracking",
   "repository": {
     "url": "https://github.com/arikusi/deepseek-mcp-server",
     "source": "github"
