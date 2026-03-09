@@ -15,6 +15,7 @@ import { CircuitBreaker } from './circuit-breaker.js';
 import type {
   ChatCompletionParams,
   ChatCompletionResponse,
+  CircuitBreakerStatus,
   DeepSeekRawResponse,
   DeepSeekStreamChunk,
   FallbackInfo,
@@ -69,7 +70,9 @@ function isRetryableError(error: unknown): boolean {
 
 export class DeepSeekClient {
   private client: OpenAI;
-  private circuitBreaker: CircuitBreaker;
+  private circuitBreakers = new Map<string, CircuitBreaker>();
+  private cbThreshold: number;
+  private cbResetTimeout: number;
 
   constructor() {
     const config = getConfig();
@@ -81,17 +84,31 @@ export class DeepSeekClient {
       maxRetries: config.maxRetries,
     });
 
-    this.circuitBreaker = new CircuitBreaker(
-      config.circuitBreakerThreshold,
-      config.circuitBreakerResetTimeout
-    );
+    this.cbThreshold = config.circuitBreakerThreshold;
+    this.cbResetTimeout = config.circuitBreakerResetTimeout;
   }
 
   /**
-   * Get circuit breaker status
+   * Get or create a circuit breaker for a specific model
+   */
+  private getCircuitBreaker(model: string): CircuitBreaker {
+    let cb = this.circuitBreakers.get(model);
+    if (!cb) {
+      cb = new CircuitBreaker(this.cbThreshold, this.cbResetTimeout);
+      this.circuitBreakers.set(model, cb);
+    }
+    return cb;
+  }
+
+  /**
+   * Get circuit breaker status for all models
    */
   getCircuitBreakerStatus() {
-    return this.circuitBreaker.getStatus();
+    const status: Record<string, CircuitBreakerStatus> = {};
+    for (const [model, cb] of this.circuitBreakers) {
+      status[model] = cb.getStatus();
+    }
+    return status;
   }
 
   /**
@@ -214,8 +231,8 @@ export class DeepSeekClient {
     const config = getConfig();
 
     try {
-      // Primary attempt through circuit breaker
-      const result = await this.circuitBreaker.execute(async () => {
+      // Primary attempt through per-model circuit breaker
+      const result = await this.getCircuitBreaker(params.model).execute(async () => {
         const requestParams = this.buildRequestParams(params, false);
         const rawResponse = await this.client.chat.completions.create(requestParams);
         return this.parseResponse(rawResponse as unknown as DeepSeekRawResponse);
@@ -273,7 +290,7 @@ export class DeepSeekClient {
     const config = getConfig();
 
     try {
-      const result = await this.circuitBreaker.execute(async () => {
+      const result = await this.getCircuitBreaker(params.model).execute(async () => {
         return this.streamInternal(params);
       });
       return result;

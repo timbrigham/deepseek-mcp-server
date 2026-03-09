@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-03-09
+
+### Fixed
+- Update `@modelcontextprotocol/sdk` to ^1.27.1 to patch cross-client data leak vulnerability (CVE-2026-25536)
+- Update `wrangler` to ^4.71.0 to patch OS command injection vulnerability (CVE-2026-0933)
+
+### Changed
+- Circuit breaker is now per-model instead of shared across all models. If one model becomes unhealthy, the other remains available independently.
+
 ## [1.5.0] - 2026-03-07
 
 ### Added
