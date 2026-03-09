@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="icon.png" alt="DeepSeek MCP Server" width="128" />
+</p>
+
 # DeepSeek MCP Server
 
 [![npm version](https://img.shields.io/npm/v/@arikusi/deepseek-mcp-server.svg)](https://www.npmjs.com/package/@arikusi/deepseek-mcp-server)
