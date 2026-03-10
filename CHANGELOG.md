@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-03-11
+
+### Fixed
+- Worker hang on non-POST requests to `/mcp` endpoint. External GET requests caused the stateless MCP transport to hang indefinitely, triggering Cloudflare Worker "code hung" errors. Now returns 405 for non-POST methods.
+
+### Changed
+- Worker VERSION synced to 1.5.2
+- Added `websiteUrl` to server.json
+
 ## [1.5.1] - 2026-03-09
 
 ### Fixed
@@ -285,6 +294,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
+- **1.5.2** (2026-03-11): Fix worker hang on non-POST /mcp requests, add registry badges
+- **1.5.1** (2026-03-09): CVE patches, per-model circuit breaker
 - **1.5.0** (2026-03-07): Cloudflare Workers remote endpoint (BYOK), deepseek-mcp.tahirl.com
 - **1.4.3** (2026-03-07): MCP Registry description fix
 - **1.4.2** (2026-03-07): Streamable HTTP transport, Docker support, health endpoint, 253 tests
@@ -307,7 +318,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [GitHub repository](https://github.com/arikusi/deepseek-mcp-server)
 - [Issue tracker](https://github.com/arikusi/deepseek-mcp-server/issues)
 
-[Unreleased]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.5.2...HEAD
+[1.5.2]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.5.1...v1.5.2
+[1.5.1]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.4.3...v1.5.0
 [1.4.3]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.4.2...v1.4.3
 [1.4.2]: https://github.com/arikusi/deepseek-mcp-server/compare/v1.4.1...v1.4.2
