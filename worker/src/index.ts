@@ -10,7 +10,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { z } from 'zod';
 
-const VERSION = '1.5.0';
+const VERSION = '1.5.2';
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
 
 // Pricing per 1M tokens (DeepSeek V3.2 unified)
@@ -333,12 +333,20 @@ export default {
 
     // MCP endpoint
     if (url.pathname === '/mcp') {
+      // Stateless mode: only POST is supported (no SSE via GET/DELETE)
+      if (request.method !== 'POST') {
+        return Response.json(
+          { error: 'Method not allowed. Use POST for MCP requests.' },
+          { status: 405, headers: { 'Access-Control-Allow-Origin': '*' } }
+        );
+      }
+
       // BYOK: require API key
       const apiKey = extractApiKey(request);
       if (!apiKey) {
         return Response.json(
           { error: 'Authorization required. Send your DeepSeek API key as: Authorization: Bearer <key>' },
-          { status: 401 }
+          { status: 401, headers: { 'Access-Control-Allow-Origin': '*' } }
         );
       }
 

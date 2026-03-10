@@ -18,7 +18,14 @@
 </p>
 
 <p align="center">
-  Compatible with Claude Code, Gemini CLI, Cursor, Windsurf, and any MCP-compatible client.
+  Compatible with Claude Code, Gemini CLI, Cursor, Windsurf, and any MCP-compatible client.<br />
+  Officially listed on the <a href="https://registry.modelcontextprotocol.io/?q=io.github.arikusi"><strong>MCP Registry</strong></a>, <a href="https://smithery.ai/servers/arikusi/deepseek-mcp-server">Smithery</a>, <a href="https://glama.ai/mcp/servers/arikusi/deepseek-mcp-server">Glama</a>, and <a href="https://lobehub.com/mcp/arikusi-deepseek-mcp-server">LobeHub</a>.
+</p>
+
+<p align="center">
+  <a href="https://registry.modelcontextprotocol.io/?q=io.github.arikusi"><img src="https://img.shields.io/badge/Official_MCP_Registry-active-brightgreen" alt="Official MCP Registry" /></a>
+  <a href="https://smithery.ai/servers/arikusi/deepseek-mcp-server"><img src="https://smithery.ai/badge/@arikusi/deepseek-mcp-server" alt="Smithery" /></a>
+  <a href="https://lobehub.com/mcp/arikusi-deepseek-mcp-server"><img src="https://img.shields.io/badge/LobeHub-listed-orange" alt="LobeHub" /></a>
 </p>
 
 <p align="center">
