@@ -251,7 +251,7 @@ describe('tools/deepseek-chat', () => {
     expect(result.content[0].text).toContain('Thought result');
     expect(mockCreate).toHaveBeenCalledWith(
       expect.objectContaining({
-        extra_body: { thinking: { type: 'enabled' } },
+        thinking: { type: 'enabled' },
       })
     );
   });

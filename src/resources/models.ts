@@ -34,7 +34,7 @@ function buildModelsData() {
         id: 'deepseek-reasoner',
         name: 'DeepSeek Reasoner (V3.2)',
         description:
-          'Advanced reasoning model with chain-of-thought explanations',
+          'Advanced reasoning model with chain-of-thought. Transparently routed through chat + thinking mode for full feature support including function calling.',
         context_length: 131072,
         max_output_tokens: 65536,
         capabilities: [
@@ -42,7 +42,7 @@ function buildModelsData() {
           'reasoning',
           'chain_of_thought',
           'json_mode',
-          'thinking_mode',
+          'function_calling',
         ],
         pricing_per_million_tokens: {
           input_cache_hit: reasonerPricing.cache_hit,

@@ -274,7 +274,7 @@ describe('DeepSeekClient', () => {
       expect(response.usage.prompt_cache_miss_tokens).toBe(20);
     });
 
-    it('should pass thinking param via extra_body', async () => {
+    it('should pass thinking param as top-level property', async () => {
       mockCreate.mockResolvedValue({
         choices: [
           {
@@ -295,7 +295,7 @@ describe('DeepSeekClient', () => {
 
       expect(mockCreate).toHaveBeenCalledWith(
         expect.objectContaining({
-          extra_body: { thinking: { type: 'enabled' } },
+          thinking: { type: 'enabled' },
         })
       );
     });
@@ -680,6 +680,178 @@ describe('DeepSeekClient', () => {
 
       // Clean up
       delete process.env.FALLBACK_ENABLED;
+    });
+  });
+
+  describe('reasoner to chat+thinking routing', () => {
+    it('should convert deepseek-reasoner to deepseek-chat with thinking enabled', async () => {
+      mockCreate.mockResolvedValue({
+        choices: [
+          {
+            message: { content: 'Answer', reasoning_content: 'Thinking...' },
+            finish_reason: 'stop',
+          },
+        ],
+        model: 'deepseek-chat',
+        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+      });
+
+      const mockError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const client = new DeepSeekClient();
+      await client.createChatCompletion({
+        model: 'deepseek-reasoner',
+        messages: [{ role: 'user', content: 'Think about this' }],
+      });
+
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: 'deepseek-chat',
+          thinking: { type: 'enabled' },
+        })
+      );
+      mockError.mockRestore();
+    });
+
+    it('should filter sampling params when reasoner is selected', async () => {
+      mockCreate.mockResolvedValue({
+        choices: [
+          {
+            message: { content: 'Answer' },
+            finish_reason: 'stop',
+          },
+        ],
+        model: 'deepseek-chat',
+        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+      });
+
+      const mockError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const client = new DeepSeekClient();
+      await client.createChatCompletion({
+        model: 'deepseek-reasoner',
+        messages: [{ role: 'user', content: 'Think' }],
+        temperature: 0.5,
+        top_p: 0.9,
+        frequency_penalty: 0.1,
+        presence_penalty: 0.2,
+      });
+
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: 'deepseek-chat',
+          temperature: undefined,
+          top_p: undefined,
+          frequency_penalty: undefined,
+          presence_penalty: undefined,
+        })
+      );
+      mockError.mockRestore();
+    });
+
+    it('should allow function calling with reasoner via routing', async () => {
+      mockCreate.mockResolvedValue({
+        choices: [
+          {
+            message: {
+              content: null,
+              tool_calls: [
+                {
+                  id: 'call_1',
+                  type: 'function',
+                  function: { name: 'get_weather', arguments: '{"city":"NYC"}' },
+                },
+              ],
+            },
+            finish_reason: 'tool_calls',
+          },
+        ],
+        model: 'deepseek-chat',
+        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+      });
+
+      const mockError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const client = new DeepSeekClient();
+      const response = await client.createChatCompletion({
+        model: 'deepseek-reasoner',
+        messages: [{ role: 'user', content: 'Weather?' }],
+        tools: [
+          {
+            type: 'function',
+            function: { name: 'get_weather', parameters: { type: 'object' } },
+          },
+        ],
+      });
+
+      // Should route to chat + thinking with tools
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: 'deepseek-chat',
+          thinking: { type: 'enabled' },
+          tools: expect.any(Array),
+        })
+      );
+      expect(response.tool_calls).toHaveLength(1);
+      expect(response.tool_calls![0].function.name).toBe('get_weather');
+      mockError.mockRestore();
+    });
+
+    it('should not route deepseek-chat without thinking', async () => {
+      mockCreate.mockResolvedValue({
+        choices: [
+          {
+            message: { content: 'Hello!' },
+            finish_reason: 'stop',
+          },
+        ],
+        model: 'deepseek-chat',
+        usage: { prompt_tokens: 5, completion_tokens: 2, total_tokens: 7 },
+      });
+
+      const client = new DeepSeekClient();
+      await client.createChatCompletion({
+        model: 'deepseek-chat',
+        messages: [{ role: 'user', content: 'Hi' }],
+      });
+
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: 'deepseek-chat',
+          temperature: 1.0,
+        })
+      );
+      // Should NOT have thinking property
+      const callArgs = mockCreate.mock.calls[0][0];
+      expect(callArgs.thinking).toBeUndefined();
+    });
+
+    it('should handle deepseek-chat with explicit thinking (no routing needed)', async () => {
+      mockCreate.mockResolvedValue({
+        choices: [
+          {
+            message: { content: 'Response', reasoning_content: 'Thinking...' },
+            finish_reason: 'stop',
+          },
+        ],
+        model: 'deepseek-chat',
+        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+      });
+
+      const mockError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const client = new DeepSeekClient();
+      await client.createChatCompletion({
+        model: 'deepseek-chat',
+        messages: [{ role: 'user', content: 'Think' }],
+        thinking: { type: 'enabled' },
+        temperature: 0.5,
+      });
+
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: 'deepseek-chat',
+          temperature: undefined,
+          thinking: { type: 'enabled' },
+        })
+      );
+      mockError.mockRestore();
     });
   });
 

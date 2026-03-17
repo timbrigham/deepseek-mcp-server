@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-03-17
+
+### Added
+- Transparent reasoner routing: all `deepseek-reasoner` requests are now routed through `deepseek-chat` + thinking mode for full feature support including function calling
+- Model-aware parameter filtering prevents sending unsupported sampling params to thinking mode
+
+### Fixed
+- Function calling now works with `deepseek-reasoner` (via transparent routing to `deepseek-chat` + thinking)
+- Sampling parameters (temperature, top_p, frequency_penalty, presence_penalty) properly filtered for reasoning requests
+- Thinking parameter now passed as top-level property instead of extra_body (OpenAI SDK v6 compatibility)
+- Corrected model capabilities in `deepseek://models` resource
+
+### Changed
+- `deepseek-reasoner` capability list updated: added `function_calling`, removed `thinking_mode`
+- Both `deepseek-chat` and `deepseek-reasoner` run DeepSeek V3.2. The reasoner model is now transparently handled as `deepseek-chat` with `thinking: {type: "enabled"}`, which provides identical reasoning behavior plus function calling support
+
 ## [1.5.2] - 2026-03-11
 
 ### Fixed

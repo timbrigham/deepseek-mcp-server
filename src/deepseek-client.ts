@@ -117,8 +117,19 @@ export class DeepSeekClient {
   private buildRequestParams(
     params: ChatCompletionParams,
     stream: boolean
-  ): OpenAI.ChatCompletionCreateParams & { extra_body?: Record<string, unknown> } {
-    const isThinkingEnabled = params.thinking?.type === 'enabled';
+  ): Record<string, unknown> {
+    // Transparently convert reasoner to chat + thinking
+    // deepseek-reasoner = deepseek-chat with thinking always enabled
+    // chat + thinking supports function calling, which reasoner alone does not
+    let effectiveModel: string = params.model;
+    let effectiveThinking = params.thinking;
+    if (params.model === 'deepseek-reasoner') {
+      effectiveModel = 'deepseek-chat';
+      effectiveThinking = { type: 'enabled' };
+      console.error('[DeepSeek MCP] Routing: reasoner -> chat + thinking');
+    }
+
+    const isThinkingEnabled = effectiveThinking?.type === 'enabled';
 
     // Filter incompatible params when thinking mode is active
     if (isThinkingEnabled) {
@@ -135,8 +146,8 @@ export class DeepSeekClient {
       }
     }
 
-    const requestParams: OpenAI.ChatCompletionCreateParams & { extra_body?: Record<string, unknown> } = {
-      model: params.model,
+    const requestParams: Record<string, unknown> = {
+      model: effectiveModel,
       messages: params.messages as OpenAI.ChatCompletionMessageParam[],
       temperature: isThinkingEnabled ? undefined : (params.temperature ?? 1.0),
       max_tokens: params.max_tokens,
@@ -147,25 +158,21 @@ export class DeepSeekClient {
       stream,
     };
 
-    // Pass thinking config via extra_body (DeepSeek extension)
-    if (params.thinking) {
-      requestParams.extra_body = {
-        ...requestParams.extra_body,
-        thinking: params.thinking,
-      };
+    // Pass thinking as top-level param (OpenAI SDK v6 passes unknown props to the API body)
+    if (effectiveThinking?.type === 'enabled') {
+      requestParams.thinking = effectiveThinking;
     }
 
     // Pass response_format for JSON mode
     if (params.response_format) {
-      requestParams.response_format = params.response_format as OpenAI.ChatCompletionCreateParams['response_format'];
+      requestParams.response_format = params.response_format;
     }
 
     if (params.tools?.length) {
-      requestParams.tools = params.tools as OpenAI.ChatCompletionTool[];
+      requestParams.tools = params.tools;
     }
     if (params.tool_choice !== undefined) {
-      requestParams.tool_choice =
-        params.tool_choice as OpenAI.ChatCompletionToolChoiceOption;
+      requestParams.tool_choice = params.tool_choice;
     }
 
     return requestParams;
@@ -234,7 +241,7 @@ export class DeepSeekClient {
       // Primary attempt through per-model circuit breaker
       const result = await this.getCircuitBreaker(params.model).execute(async () => {
         const requestParams = this.buildRequestParams(params, false);
-        const rawResponse = await this.client.chat.completions.create(requestParams);
+        const rawResponse = await this.client.chat.completions.create(requestParams as unknown as OpenAI.ChatCompletionCreateParams);
         return this.parseResponse(rawResponse as unknown as DeepSeekRawResponse);
       });
       return result;
@@ -252,7 +259,7 @@ export class DeepSeekClient {
           const fallbackParams = { ...params, model: fallbackModel as ChatCompletionParams['model'] };
           // Fallback bypasses circuit breaker (it's a different attempt)
           const requestParams = this.buildRequestParams(fallbackParams, false);
-          const rawResponse = await this.client.chat.completions.create(requestParams);
+          const rawResponse = await this.client.chat.completions.create(requestParams as unknown as OpenAI.ChatCompletionCreateParams);
           const result = this.parseResponse(rawResponse as unknown as DeepSeekRawResponse);
           return {
             ...result,
@@ -332,7 +339,7 @@ export class DeepSeekClient {
    */
   private async streamInternal(params: ChatCompletionParams): Promise<ChatCompletionResponse> {
     const requestParams = this.buildRequestParams(params, true);
-    const stream = await this.client.chat.completions.create(requestParams);
+    const stream = await this.client.chat.completions.create(requestParams as unknown as OpenAI.ChatCompletionCreateParams);
 
     let fullContent = '';
     let reasoningContent = '';

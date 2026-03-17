@@ -10,7 +10,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { z } from 'zod';
 
-const VERSION = '1.5.2';
+const VERSION = '1.6.0';
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
 
 // Pricing per 1M tokens (DeepSeek V3.2 unified)
@@ -109,17 +109,31 @@ function createMcpServer(apiKey: string): McpServer {
     },
     async (params) => {
       try {
+        // Transparently convert reasoner to chat + thinking
+        // deepseek-reasoner = deepseek-chat with thinking always enabled
+        // chat + thinking supports function calling, which reasoner alone does not
+        let model = params.model;
+        let thinking = params.thinking;
+        const isReasonerRouted = params.model === 'deepseek-reasoner';
+        if (isReasonerRouted) {
+          model = 'deepseek-chat';
+          thinking = { type: 'enabled' as const };
+        }
+
+        const isThinkingMode = thinking?.type === 'enabled';
+
         // Build DeepSeek API request body — always stream to avoid CF timeout
         const body: Record<string, unknown> = {
-          model: params.model,
+          model,
           messages: params.messages,
           stream: true,
         };
-        if (params.temperature !== undefined) body.temperature = params.temperature;
+        // Sampling params are ignored by thinking mode - don't send them
+        if (params.temperature !== undefined && !isThinkingMode) body.temperature = params.temperature;
         if (params.max_tokens !== undefined) body.max_tokens = params.max_tokens;
         if (params.tools) body.tools = params.tools;
         if (params.tool_choice) body.tool_choice = params.tool_choice;
-        if (params.thinking) body.thinking = params.thinking;
+        if (thinking) body.thinking = thinking;
         if (params.json_mode) body.response_format = { type: 'json_object' };
 
         const apiResponse = await fetch(DEEPSEEK_API_URL, {
@@ -220,6 +234,9 @@ function createMcpServer(apiKey: string): McpServer {
         text += `- **Tokens:** ${usage.total_tokens || 0} (${usage.prompt_tokens || 0} prompt + ${usage.completion_tokens || 0} completion)\n`;
         text += `- **Model:** ${model}\n`;
         text += `- **Cost:** ${cost.formatted}`;
+        if (isReasonerRouted) {
+          text += `\n- **Routed:** reasoner -> chat + thinking`;
+        }
 
         return {
           content: [{ type: 'text' as const, text }],
@@ -230,6 +247,7 @@ function createMcpServer(apiKey: string): McpServer {
             usage,
             finish_reason: finishReason,
             tool_calls: toolCallsArray.length > 0 ? toolCallsArray : undefined,
+            ...(isReasonerRouted ? { routed_from: 'deepseek-reasoner' } : {}),
             cost_usd: parseFloat(cost.totalCost.toFixed(6)),
           } as unknown as Record<string, unknown>,
         };

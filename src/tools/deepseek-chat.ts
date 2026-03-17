@@ -202,6 +202,9 @@ export function registerChatTool(server: McpServer, client: DeepSeekClient): voi
           );
         }
 
+        // Track if reasoner was selected (routing happens in deepseek-client)
+        const isReasonerRouted = validated.model === 'deepseek-reasoner';
+
         console.error(
           `[DeepSeek MCP] Request: model=${validated.model}, messages=${allMessages.length}, stream=${validated.stream}${validated.tools ? `, tools=${validated.tools.length}` : ''}${validated.thinking ? `, thinking=${validated.thinking.type}` : ''}${validated.json_mode ? ', json_mode=true' : ''}${validated.session_id ? `, session=${validated.session_id}` : ''}`
         );
@@ -280,6 +283,9 @@ export function registerChatTool(server: McpServer, client: DeepSeekClient): voi
           responseText += `- **Tokens:** ${response.usage.total_tokens} (${response.usage.prompt_tokens} prompt + ${response.usage.completion_tokens} completion)\n`;
           responseText += `- **Model:** ${response.model}\n`;
           responseText += `- **Cost:** ${formatCost(costBreakdown)}`;
+          if (isReasonerRouted) {
+            responseText += `\n- **Routed:** reasoner -> chat + thinking`;
+          }
           if (response.tool_calls?.length) {
             responseText += `\n- **Tool Calls:** ${response.tool_calls.length}`;
           }
@@ -300,6 +306,7 @@ export function registerChatTool(server: McpServer, client: DeepSeekClient): voi
           ],
           structuredContent: {
             ...response,
+            ...(isReasonerRouted ? { routed_from: 'deepseek-reasoner' } : {}),
             cost_usd: parseFloat(costBreakdown.totalCost.toFixed(6)),
             ...(validated.session_id ? { session_id: validated.session_id } : {}),
           } as unknown as Record<string, unknown>,

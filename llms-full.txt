@@ -45,21 +45,32 @@ Get API key: https://platform.deepseek.com
 
 ## Models
 
-Both models run DeepSeek-V3.2 with unified pricing.
+Both models run DeepSeek-V3.2 with unified pricing. They are the same underlying model with different modes:
+- deepseek-chat = V3.2 non-thinking mode
+- deepseek-reasoner = V3.2 thinking mode (transparently routed as deepseek-chat + thinking:{type:"enabled"})
 
 ### deepseek-chat
 - General conversations, coding, content generation
-- Non-thinking mode (can enable thinking via parameter)
-- 128K context, 8K max output (default 4K)
+- Non-thinking mode by default. Can enable thinking via `thinking: {type: "enabled"}` parameter
+- 128K context, 8K max output (default 4K), 64K max output when thinking enabled
 - Supports thinking mode, JSON mode, function calling, FIM completion
 - Pricing: $0.028/1M cache hit, $0.28/1M cache miss, $0.42/1M output
 
 ### deepseek-reasoner
 - Complex reasoning, math, logic, multi-step tasks
-- Thinking mode (always active), shows chain-of-thought in reasoning_content
+- Transparently routed as deepseek-chat with thinking:{type:"enabled"}
+- This enables full feature parity including function calling, which the raw deepseek-reasoner API does not support
 - 128K context, 64K max output (default 32K)
-- Supports JSON mode, function calling
+- Supports JSON mode, function calling (via transparent routing)
 - Pricing: $0.028/1M cache hit, $0.28/1M cache miss, $0.42/1M output
+
+### Model Routing Table
+
+| User selects | Sent to API | Thinking | reasoning_content | Function calling |
+|---|---|---|---|---|
+| deepseek-chat | deepseek-chat | Off | No | Yes |
+| deepseek-chat + thinking:enabled | deepseek-chat + thinking | On | Yes | Yes |
+| deepseek-reasoner | deepseek-chat + thinking | On | Yes | Yes |
 
 ## Tool: deepseek_chat
 
@@ -100,8 +111,17 @@ Sessions are stored in memory for the lifetime of the MCP server process. They e
 
 ### Thinking Mode
 
-Enable thinking mode on deepseek-chat:
+There are two ways to enable thinking mode:
 
+1. Select deepseek-reasoner (automatically routed as chat + thinking):
+```json
+{
+  "messages": [{"role": "user", "content": "Analyze quicksort complexity"}],
+  "model": "deepseek-reasoner"
+}
+```
+
+2. Explicitly enable thinking on deepseek-chat:
 ```json
 {
   "messages": [{"role": "user", "content": "Analyze quicksort complexity"}],
@@ -110,7 +130,7 @@ Enable thinking mode on deepseek-chat:
 }
 ```
 
-When enabled, temperature/top_p/frequency_penalty/presence_penalty are automatically ignored with a logged warning. deepseek-reasoner has implicit thinking (always active).
+Both produce identical results. When thinking is active, temperature/top_p/frequency_penalty/presence_penalty are automatically ignored. The response includes a reasoning_content field with the chain-of-thought.
 
 ### JSON Output Mode
 
