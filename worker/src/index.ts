@@ -156,7 +156,7 @@ function createMcpServer(apiKey: string): McpServer {
         // Read SSE stream and accumulate chunks
         let content = '';
         let reasoningContent = '';
-        let model = '';
+        let responseModel = '';
         let finishReason = '';
         let usage: Record<string, number> = {};
         const toolCalls: Record<number, { id: string; type: string; function: { name: string; arguments: string } }> = {};
@@ -180,7 +180,7 @@ function createMcpServer(apiKey: string): McpServer {
 
             try {
               const chunk = JSON.parse(data);
-              if (chunk.model) model = chunk.model;
+              if (chunk.model) responseModel = chunk.model;
               if (chunk.usage) usage = chunk.usage;
 
               const delta = chunk.choices?.[0]?.delta;
@@ -232,7 +232,7 @@ function createMcpServer(apiKey: string): McpServer {
 
         text += `\n---\n**Request Info:**\n`;
         text += `- **Tokens:** ${usage.total_tokens || 0} (${usage.prompt_tokens || 0} prompt + ${usage.completion_tokens || 0} completion)\n`;
-        text += `- **Model:** ${model}\n`;
+        text += `- **Model:** ${responseModel || model}\n`;
         text += `- **Cost:** ${cost.formatted}`;
         if (isReasonerRouted) {
           text += `\n- **Routed:** reasoner -> chat + thinking`;
@@ -243,7 +243,7 @@ function createMcpServer(apiKey: string): McpServer {
           structuredContent: {
             content,
             reasoning_content: reasoningContent || undefined,
-            model,
+            model: responseModel || model,
             usage,
             finish_reason: finishReason,
             tool_calls: toolCallsArray.length > 0 ? toolCallsArray : undefined,
