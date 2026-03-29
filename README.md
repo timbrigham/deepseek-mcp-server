@@ -34,6 +34,10 @@
   </a>
 </p>
 
+## Hosted deployment
+
+A hosted deployment is available on [Fronteir AI](https://fronteir.ai/mcp/arikusi-deepseek-mcp-server).
+
 ## Quick Start
 
 ### Remote (No Install)
