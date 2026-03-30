@@ -19,7 +19,7 @@
 
 <p align="center">
   Compatible with Claude Code, Gemini CLI, Cursor, Windsurf, and any MCP-compatible client.<br />
-  Officially listed on the <a href="https://registry.modelcontextprotocol.io/?q=io.github.arikusi"><strong>MCP Registry</strong></a>, <a href="https://smithery.ai/servers/arikusi/deepseek-mcp-server">Smithery</a>, <a href="https://glama.ai/mcp/servers/arikusi/deepseek-mcp-server">Glama</a>, and <a href="https://lobehub.com/mcp/arikusi-deepseek-mcp-server">LobeHub</a>.
+  Officially listed on the <a href="https://registry.modelcontextprotocol.io/?q=io.github.arikusi"><strong>MCP Registry</strong></a>, <a href="https://smithery.ai/servers/arikusi/deepseek-mcp-server">Smithery</a>, <a href="https://glama.ai/mcp/servers/arikusi/deepseek-mcp-server">Glama</a>, <a href="https://lobehub.com/mcp/arikusi-deepseek-mcp-server">LobeHub</a>, and <a href="https://fronteir.ai/mcp/arikusi-deepseek-mcp-server">Fronteir AI</a>.
 </p>
 
 <p align="center">
@@ -33,10 +33,6 @@
     <img width="380" height="200" src="https://glama.ai/mcp/servers/arikusi/deepseek-mcp-server/badge" alt="Glama Badge" />
   </a>
 </p>
-
-## Hosted deployment
-
-A hosted deployment is available on [Fronteir AI](https://fronteir.ai/mcp/arikusi-deepseek-mcp-server).
 
 ## Quick Start
 
