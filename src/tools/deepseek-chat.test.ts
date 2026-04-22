@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { loadConfig, resetConfig } from '../config.js';
+import { SessionStore } from '../session.js';
 import { registerChatTool } from './deepseek-chat.js';
 
 const { mockCreate } = vi.hoisted(() => ({
@@ -28,6 +29,7 @@ function createMockServer() {
 
 describe('tools/deepseek-chat', () => {
   let mockServer: ReturnType<typeof createMockServer>;
+  let store: SessionStore;
 
   beforeEach(() => {
     resetConfig();
@@ -35,12 +37,13 @@ describe('tools/deepseek-chat', () => {
     loadConfig();
     mockCreate.mockReset();
     mockServer = createMockServer();
+    store = new SessionStore();
   });
 
   it('should register deepseek_chat tool', async () => {
     const { DeepSeekClient } = await import('../deepseek-client.js');
     const client = new DeepSeekClient();
-    registerChatTool(mockServer as any, client);
+    registerChatTool(mockServer as any, client, store);
     expect(mockServer.registerTool).toHaveBeenCalledWith(
       'deepseek_chat',
       expect.any(Object),
@@ -66,7 +69,7 @@ describe('tools/deepseek-chat', () => {
 
     const { DeepSeekClient } = await import('../deepseek-client.js');
     const client = new DeepSeekClient();
-    registerChatTool(mockServer as any, client);
+    registerChatTool(mockServer as any, client, store);
 
     const handler = mockServer.tools.get('deepseek_chat')!.handler;
     const result = await handler({
@@ -101,7 +104,7 @@ describe('tools/deepseek-chat', () => {
 
     const { DeepSeekClient } = await import('../deepseek-client.js');
     const client = new DeepSeekClient();
-    registerChatTool(mockServer as any, client);
+    registerChatTool(mockServer as any, client, store);
 
     const handler = mockServer.tools.get('deepseek_chat')!.handler;
     const result = await handler({
@@ -140,7 +143,7 @@ describe('tools/deepseek-chat', () => {
 
     const { DeepSeekClient } = await import('../deepseek-client.js');
     const client = new DeepSeekClient();
-    registerChatTool(mockServer as any, client);
+    registerChatTool(mockServer as any, client, store);
 
     const handler = mockServer.tools.get('deepseek_chat')!.handler;
     const result = await handler({
@@ -164,7 +167,7 @@ describe('tools/deepseek-chat', () => {
 
     const { DeepSeekClient } = await import('../deepseek-client.js');
     const client = new DeepSeekClient();
-    registerChatTool(mockServer as any, client);
+    registerChatTool(mockServer as any, client, store);
 
     const handler = mockServer.tools.get('deepseek_chat')!.handler;
     const result = await handler({
@@ -180,7 +183,7 @@ describe('tools/deepseek-chat', () => {
   it('should reject message content exceeding max length', async () => {
     const { DeepSeekClient } = await import('../deepseek-client.js');
     const client = new DeepSeekClient();
-    registerChatTool(mockServer as any, client);
+    registerChatTool(mockServer as any, client, store);
 
     const handler = mockServer.tools.get('deepseek_chat')!.handler;
     const longContent = 'x'.repeat(100_001);
@@ -212,7 +215,7 @@ describe('tools/deepseek-chat', () => {
 
     const { DeepSeekClient } = await import('../deepseek-client.js');
     const client = new DeepSeekClient();
-    registerChatTool(mockServer as any, client);
+    registerChatTool(mockServer as any, client, store);
 
     const handler = mockServer.tools.get('deepseek_chat')!.handler;
     const result = await handler({
@@ -239,7 +242,7 @@ describe('tools/deepseek-chat', () => {
 
     const { DeepSeekClient } = await import('../deepseek-client.js');
     const client = new DeepSeekClient();
-    registerChatTool(mockServer as any, client);
+    registerChatTool(mockServer as any, client, store);
 
     const handler = mockServer.tools.get('deepseek_chat')!.handler;
     const result = await handler({
@@ -270,7 +273,7 @@ describe('tools/deepseek-chat', () => {
 
     const { DeepSeekClient } = await import('../deepseek-client.js');
     const client = new DeepSeekClient();
-    registerChatTool(mockServer as any, client);
+    registerChatTool(mockServer as any, client, store);
 
     const handler = mockServer.tools.get('deepseek_chat')!.handler;
     const result = await handler({
@@ -290,7 +293,7 @@ describe('tools/deepseek-chat', () => {
   it('should reject multimodal content when ENABLE_MULTIMODAL is false', async () => {
     const { DeepSeekClient } = await import('../deepseek-client.js');
     const client = new DeepSeekClient();
-    registerChatTool(mockServer as any, client);
+    registerChatTool(mockServer as any, client, store);
 
     const handler = mockServer.tools.get('deepseek_chat')!.handler;
     const mockError = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -332,7 +335,7 @@ describe('tools/deepseek-chat', () => {
 
     const { DeepSeekClient } = await import('../deepseek-client.js');
     const client = new DeepSeekClient();
-    registerChatTool(mockServer as any, client);
+    registerChatTool(mockServer as any, client, store);
 
     const handler = mockServer.tools.get('deepseek_chat')!.handler;
     const result = await handler({
@@ -362,7 +365,7 @@ describe('tools/deepseek-chat', () => {
 
     const { DeepSeekClient } = await import('../deepseek-client.js');
     const client = new DeepSeekClient();
-    registerChatTool(mockServer as any, client);
+    registerChatTool(mockServer as any, client, store);
 
     const handler = mockServer.tools.get('deepseek_chat')!.handler;
     const mockError = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -405,7 +408,7 @@ describe('tools/deepseek-chat', () => {
 
     const { DeepSeekClient } = await import('../deepseek-client.js');
     const client = new DeepSeekClient();
-    registerChatTool(mockServer as any, client);
+    registerChatTool(mockServer as any, client, store);
 
     const handler = mockServer.tools.get('deepseek_chat')!.handler;
     const result = await handler({

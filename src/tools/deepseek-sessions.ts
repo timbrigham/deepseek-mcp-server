@@ -5,10 +5,10 @@
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { SessionStore } from '../session.js';
+import type { SessionStore } from '../session.js';
 import { getErrorMessage } from '../types.js';
 
-export function registerSessionsTool(server: McpServer): void {
+export function registerSessionsTool(server: McpServer, store: SessionStore): void {
   server.registerTool(
     'deepseek_sessions',
     {
@@ -30,7 +30,6 @@ export function registerSessionsTool(server: McpServer): void {
     },
     async (input: { action: 'list' | 'clear' | 'delete'; session_id?: string }) => {
       try {
-        const store = SessionStore.getInstance();
 
         switch (input.action) {
           case 'list': {

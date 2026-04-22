@@ -5,7 +5,6 @@ import { SessionStore } from './session.js';
 describe('SessionStore', () => {
   beforeEach(() => {
     resetConfig();
-    SessionStore.resetInstance();
     process.env.DEEPSEEK_API_KEY = 'test-key';
     process.env.SESSION_TTL_MINUTES = '30';
     process.env.MAX_SESSIONS = '5';
@@ -13,31 +12,26 @@ describe('SessionStore', () => {
   });
 
   afterEach(() => {
-    SessionStore.resetInstance();
     resetConfig();
     delete process.env.SESSION_TTL_MINUTES;
     delete process.env.MAX_SESSIONS;
     vi.restoreAllMocks();
   });
 
-  describe('singleton', () => {
-    it('should return the same instance', () => {
-      const a = SessionStore.getInstance();
-      const b = SessionStore.getInstance();
-      expect(a).toBe(b);
-    });
-
-    it('should create new instance after reset', () => {
-      const a = SessionStore.getInstance();
-      SessionStore.resetInstance();
-      const b = SessionStore.getInstance();
+  describe('instantiation', () => {
+    it('should produce independent instances', () => {
+      const a = new SessionStore();
+      const b = new SessionStore();
       expect(a).not.toBe(b);
+      a.create('only-in-a');
+      expect(a.size).toBe(1);
+      expect(b.size).toBe(0);
     });
   });
 
   describe('create', () => {
     it('should create a session with given id', () => {
-      const store = SessionStore.getInstance();
+      const store = new SessionStore();
       const session = store.create('test-1');
       expect(session.id).toBe('test-1');
       expect(session.messages).toEqual([]);
@@ -46,14 +40,14 @@ describe('SessionStore', () => {
     });
 
     it('should create a session with auto-generated id', () => {
-      const store = SessionStore.getInstance();
+      const store = new SessionStore();
       const session = store.create();
       expect(session.id).toBeTruthy();
       expect(session.id.length).toBeGreaterThan(0);
     });
 
     it('should return existing session if id exists', () => {
-      const store = SessionStore.getInstance();
+      const store = new SessionStore();
       const s1 = store.create('test-1');
       s1.requestCount = 5;
       const s2 = store.create('test-1');
@@ -61,7 +55,7 @@ describe('SessionStore', () => {
     });
 
     it('should enforce max sessions limit', () => {
-      const store = SessionStore.getInstance();
+      const store = new SessionStore();
       for (let i = 0; i < 5; i++) {
         store.create(`session-${i}`);
       }
@@ -74,7 +68,7 @@ describe('SessionStore', () => {
 
   describe('get', () => {
     it('should return session by id', () => {
-      const store = SessionStore.getInstance();
+      const store = new SessionStore();
       store.create('test-1');
       const session = store.get('test-1');
       expect(session).toBeDefined();
@@ -82,12 +76,12 @@ describe('SessionStore', () => {
     });
 
     it('should return undefined for non-existent session', () => {
-      const store = SessionStore.getInstance();
+      const store = new SessionStore();
       expect(store.get('nonexistent')).toBeUndefined();
     });
 
     it('should return undefined for expired session', () => {
-      const store = SessionStore.getInstance();
+      const store = new SessionStore();
       const session = store.create('test-1');
       // Simulate expiry: set lastAccessedAt to 31 minutes ago
       session.lastAccessedAt = Date.now() - 31 * 60 * 1000;
@@ -95,7 +89,7 @@ describe('SessionStore', () => {
     });
 
     it('should update lastAccessedAt on get', () => {
-      const store = SessionStore.getInstance();
+      const store = new SessionStore();
       store.create('test-1');
       const before = Date.now();
       const session = store.get('test-1');
@@ -105,7 +99,7 @@ describe('SessionStore', () => {
 
   describe('addMessages', () => {
     it('should add messages to session', () => {
-      const store = SessionStore.getInstance();
+      const store = new SessionStore();
       store.create('test-1');
       store.addMessages('test-1', [
         { role: 'user', content: 'Hello' },
@@ -115,7 +109,7 @@ describe('SessionStore', () => {
     });
 
     it('should throw for non-existent session', () => {
-      const store = SessionStore.getInstance();
+      const store = new SessionStore();
       expect(() =>
         store.addMessages('nonexistent', [{ role: 'user', content: 'Hi' }])
       ).toThrow('Session not found');
@@ -124,12 +118,12 @@ describe('SessionStore', () => {
 
   describe('getMessages', () => {
     it('should return empty array for non-existent session', () => {
-      const store = SessionStore.getInstance();
+      const store = new SessionStore();
       expect(store.getMessages('nonexistent')).toEqual([]);
     });
 
     it('should return a copy of messages', () => {
-      const store = SessionStore.getInstance();
+      const store = new SessionStore();
       store.create('test-1');
       store.addMessages('test-1', [{ role: 'user', content: 'Hi' }]);
       const messages = store.getMessages('test-1');
@@ -141,21 +135,21 @@ describe('SessionStore', () => {
 
   describe('delete', () => {
     it('should delete existing session', () => {
-      const store = SessionStore.getInstance();
+      const store = new SessionStore();
       store.create('test-1');
       expect(store.delete('test-1')).toBe(true);
       expect(store.get('test-1')).toBeUndefined();
     });
 
     it('should return false for non-existent session', () => {
-      const store = SessionStore.getInstance();
+      const store = new SessionStore();
       expect(store.delete('nonexistent')).toBe(false);
     });
   });
 
   describe('list', () => {
     it('should list all active sessions', () => {
-      const store = SessionStore.getInstance();
+      const store = new SessionStore();
       store.create('s1');
       store.create('s2');
       const list = store.list();
@@ -164,7 +158,7 @@ describe('SessionStore', () => {
     });
 
     it('should exclude expired sessions', () => {
-      const store = SessionStore.getInstance();
+      const store = new SessionStore();
       const s1 = store.create('s1');
       store.create('s2');
       s1.lastAccessedAt = Date.now() - 31 * 60 * 1000;
@@ -174,7 +168,7 @@ describe('SessionStore', () => {
     });
 
     it('should return session info without messages', () => {
-      const store = SessionStore.getInstance();
+      const store = new SessionStore();
       store.create('s1');
       store.addMessages('s1', [{ role: 'user', content: 'Hi' }]);
       const list = store.list();
@@ -185,7 +179,7 @@ describe('SessionStore', () => {
 
   describe('cleanup', () => {
     it('should remove expired sessions', () => {
-      const store = SessionStore.getInstance();
+      const store = new SessionStore();
       const s1 = store.create('s1');
       store.create('s2');
       s1.lastAccessedAt = Date.now() - 31 * 60 * 1000;
@@ -195,7 +189,7 @@ describe('SessionStore', () => {
     });
 
     it('should return 0 when no sessions expired', () => {
-      const store = SessionStore.getInstance();
+      const store = new SessionStore();
       store.create('s1');
       expect(store.cleanup()).toBe(0);
     });
@@ -203,7 +197,7 @@ describe('SessionStore', () => {
 
   describe('clear', () => {
     it('should remove all sessions', () => {
-      const store = SessionStore.getInstance();
+      const store = new SessionStore();
       store.create('s1');
       store.create('s2');
       const count = store.clear();
@@ -214,12 +208,35 @@ describe('SessionStore', () => {
 
   describe('getTotalCost', () => {
     it('should sum costs across all sessions', () => {
-      const store = SessionStore.getInstance();
+      const store = new SessionStore();
       const s1 = store.create('s1');
       const s2 = store.create('s2');
       s1.totalCost = 0.05;
       s2.totalCost = 0.10;
       expect(store.getTotalCost()).toBeCloseTo(0.15);
+    });
+  });
+
+  describe('isolation between instances', () => {
+    it('should not share state across separate stores', () => {
+      const a = new SessionStore();
+      const b = new SessionStore();
+      a.create('shared-id');
+      a.addMessages('shared-id', [{ role: 'user', content: 'secret' }]);
+      // Another store with the same id must see nothing
+      expect(b.get('shared-id')).toBeUndefined();
+      expect(b.getMessages('shared-id')).toEqual([]);
+      expect(b.size).toBe(0);
+    });
+
+    it('should not be affected by other store clears', () => {
+      const a = new SessionStore();
+      const b = new SessionStore();
+      a.create('a1');
+      b.create('b1');
+      b.clear();
+      expect(a.size).toBe(1);
+      expect(a.get('a1')).toBeDefined();
     });
   });
 });

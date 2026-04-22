@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { loadConfig, resetConfig } from '../config.js';
 import { UsageTracker } from '../usage-tracker.js';
-import { SessionStore } from '../session.js';
 import { registerModelsResource } from './models.js';
 import { registerConfigResource } from './config.js';
 import { registerUsageResource } from './usage.js';
@@ -28,13 +27,11 @@ describe('MCP Resources', () => {
     loadConfig();
     mockServer = createMockServer();
     UsageTracker.resetInstance();
-    SessionStore.resetInstance();
   });
 
   afterEach(() => {
     resetConfig();
     UsageTracker.resetInstance();
-    SessionStore.resetInstance();
   });
 
   describe('registerAllResources', () => {

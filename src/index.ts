@@ -14,6 +14,8 @@ import { registerAllTools } from './tools/index.js';
 import { registerAllPrompts } from './prompts/index.js';
 import { registerAllResources } from './resources/index.js';
 import { startHttpTransport } from './transport-http.js';
+import { SessionStore } from './session.js';
+import { UsageTracker } from './usage-tracker.js';
 
 async function main() {
   // Load and validate configuration
@@ -33,10 +35,22 @@ async function main() {
   const deepseek = new DeepSeekClient();
   const server = createServer();
 
+  // STDIO mode: single shared SessionStore for the lifetime of this process.
+  // (HTTP mode builds its own per-session stores below — see serverFactory.)
+  const stdioSessionStore = new SessionStore();
+
   // Register tools, prompts, and resources
-  registerAllTools(server, deepseek);
+  registerAllTools(server, deepseek, stdioSessionStore);
   registerAllPrompts(server);
   registerAllResources(server);
+
+  // Wire the usage tracker's active-session count to the STDIO store.
+  // In HTTP mode this is intentionally NOT wired: each HTTP session owns its
+  // own store, so a process-wide count would be misleading and could leak
+  // tenant info.
+  if (config.transport !== 'http') {
+    UsageTracker.getInstance().setSessionSource(() => stdioSessionStore.list().length);
+  }
 
   console.error(`[DeepSeek MCP] Starting server v${version}...`);
 
@@ -56,10 +70,14 @@ async function main() {
   }
 
   if (config.transport === 'http') {
-    // HTTP transport: per-session McpServer, shared DeepSeekClient
+    // HTTP transport: per-session McpServer AND per-session SessionStore.
+    // DeepSeekClient is shared (stateless API client is fine cross-session).
+    // Each HTTP session gets an isolated SessionStore so that one client
+    // cannot read, list, or clear another client's conversation history.
     const serverFactory = () => {
       const s = createServer();
-      registerAllTools(s, deepseek);
+      const sessionStore = new SessionStore();
+      registerAllTools(s, deepseek, sessionStore);
       registerAllPrompts(s);
       registerAllResources(s);
       return s;
@@ -102,7 +120,8 @@ export function createSandboxServer() {
   loadConfig();
   const client = new DeepSeekClient();
   const server = createServer();
-  registerAllTools(server, client);
+  const sessionStore = new SessionStore();
+  registerAllTools(server, client, sessionStore);
   registerAllPrompts(server);
   registerAllResources(server);
   return server;

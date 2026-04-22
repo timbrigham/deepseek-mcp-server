@@ -19,7 +19,7 @@ import {
 import type { DeepSeekClient } from '../deepseek-client.js';
 import type { ChatMessage, DeepSeekChatInput } from '../types.js';
 import { getErrorMessage, getTextContent } from '../types.js';
-import { SessionStore } from '../session.js';
+import type { SessionStore } from '../session.js';
 import { UsageTracker } from '../usage-tracker.js';
 
 /** Input type extended with session_id */
@@ -40,7 +40,11 @@ function validateMessageLength(input: DeepSeekChatInput): void {
   }
 }
 
-export function registerChatTool(server: McpServer, client: DeepSeekClient): void {
+export function registerChatTool(
+  server: McpServer,
+  client: DeepSeekClient,
+  sessionStore: SessionStore
+): void {
   // Use config's defaultModel if it's a valid model name
   const cfg = getConfig();
   const modelDefault: 'deepseek-chat' | 'deepseek-reasoner' =
@@ -188,7 +192,6 @@ export function registerChatTool(server: McpServer, client: DeepSeekClient): voi
 
         // Session management: build full message list
         let allMessages: ChatMessage[] = validated.messages;
-        const sessionStore = SessionStore.getInstance();
 
         if (validated.session_id) {
           // Create or get session

@@ -1,37 +1,19 @@
 /**
  * In-Memory Session Store
- * Manages multi-turn conversation sessions within a single MCP server process lifetime
+ * Manages multi-turn conversation sessions within a single MCP server instance lifetime.
+ *
+ * One SessionStore per McpServer instance. In HTTP transport mode this means
+ * one store per connected HTTP session, which gives cross-client isolation.
+ * In STDIO mode a single store is shared for the life of the process.
  */
 
 import { randomUUID } from 'crypto';
 import { getConfig } from './config.js';
 import type { ChatMessage, Session, SessionInfo } from './types.js';
 
-/**
- * Singleton session store backed by an in-memory Map.
- * Sessions live for the duration of the MCP server process.
- * TTL-based cleanup prevents unbounded memory growth.
- */
 export class SessionStore {
-  private static instance: SessionStore | null = null;
   private sessions = new Map<string, Session>();
   private requestCounter = 0;
-
-  private constructor() {}
-
-  static getInstance(): SessionStore {
-    if (!SessionStore.instance) {
-      SessionStore.instance = new SessionStore();
-    }
-    return SessionStore.instance;
-  }
-
-  /**
-   * Reset singleton (for testing)
-   */
-  static resetInstance(): void {
-    SessionStore.instance = null;
-  }
 
   /**
    * Create a new session or return existing one

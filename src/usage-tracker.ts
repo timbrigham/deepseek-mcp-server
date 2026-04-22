@@ -4,7 +4,6 @@
  */
 
 import type { UsageStats } from './types.js';
-import { SessionStore } from './session.js';
 
 export class UsageTracker {
   private static instance: UsageTracker | null = null;
@@ -16,6 +15,7 @@ export class UsageTracker {
   private totalCost = 0;
   private cacheHitTokens = 0;
   private cacheMissTokens = 0;
+  private sessionSource: (() => number) | null = null;
 
   private constructor() {}
 
@@ -31,6 +31,23 @@ export class UsageTracker {
    */
   static resetInstance(): void {
     UsageTracker.instance = null;
+  }
+
+  /**
+   * Wire up a callback that reports the current active session count.
+   * In STDIO mode this maps to the single shared SessionStore.
+   * In HTTP mode no source is set — each HTTP session owns its own store,
+   * so a process-wide count would be misleading and could leak tenant info.
+   */
+  setSessionSource(fn: () => number): void {
+    this.sessionSource = fn;
+  }
+
+  /**
+   * Clear the session source (used in tests or when swapping stores)
+   */
+  clearSessionSource(): void {
+    this.sessionSource = null;
   }
 
   /**
@@ -65,10 +82,12 @@ export class UsageTracker {
    */
   getStats(): UsageStats {
     let activeSessions = 0;
-    try {
-      activeSessions = SessionStore.getInstance().list().length;
-    } catch {
-      // SessionStore may not be initialized (e.g., config not loaded in tests)
+    if (this.sessionSource) {
+      try {
+        activeSessions = this.sessionSource();
+      } catch {
+        // callback failed — fall through with 0
+      }
     }
 
     return {

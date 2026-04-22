@@ -100,7 +100,7 @@ gemini mcp add deepseek npx @arikusi/deepseek-mcp-server -e DEEPSEEK_API_KEY=you
 - **Remote Endpoint**: Hosted at `deepseek-mcp.tahirl.com/mcp` — BYOK (Bring Your Own Key), no install needed
 - **HTTP Transport**: Self-hosted remote access via Streamable HTTP with `TRANSPORT=http`
 - **Docker Ready**: Multi-stage Dockerfile with health checks for containerized deployment
-- **Tested**: 253 tests with 90%+ code coverage
+- **Tested**: 265 tests, ~89% line coverage
 - **Type-Safe**: Full TypeScript implementation
 - **MCP Compatible**: Works with any MCP-compatible CLI (Claude Code, Gemini CLI, etc.)
 
@@ -317,7 +317,7 @@ JSON mode ensures the model outputs valid JSON. Include the word "json" in your 
 }
 ```
 
-Use the same `session_id` across requests to maintain conversation context. The server stores messages in memory and automatically prepends history to each request.
+Use the same `session_id` across requests to maintain conversation context. Messages are stored in memory and prepended automatically. In HTTP transport each connected MCP session has its own isolated session store — a `session_id` created by one HTTP client is not visible to another (see HTTP Transport below).
 
 ### `deepseek_sessions`
 
@@ -558,6 +558,12 @@ curl http://localhost:3000/health
 ```
 
 The MCP endpoint is available at `POST /mcp` (Streamable HTTP protocol).
+
+**Session isolation (1.7.0+):** In HTTP transport each connected MCP session
+gets its own `McpServer` instance and its own `SessionStore`. Conversation
+history, session listings, and deletions are scoped to the MCP session that
+created them — one client cannot read, enumerate, or wipe another client's
+sessions. STDIO transport is single-tenant by nature and unaffected.
 
 ### Docker
 

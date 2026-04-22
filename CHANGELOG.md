@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-04-22
+
+### Security
+- **Cross-session data exposure in HTTP transport (high severity).** The `SessionStore` was a process-wide singleton shared across all connected HTTP clients. In HTTP transport mode, any client that provided another client's `session_id` to `deepseek_chat` would read that client's conversation history. The `deepseek_sessions` tool compounded this by letting any client enumerate all active session IDs (`list`), delete any session (`delete`), or wipe every tenant's sessions at once (`clear`). STDIO transport was unaffected because each STDIO client runs its own server process. Full advisory and CVE coordination pending.
+
+### Changed
+- **BREAKING (HTTP transport only).** Each HTTP session now gets an isolated `SessionStore` instance. Conversation history, session listings, and session deletion are scoped to the HTTP session that created them. Clients on the same server no longer share session state.
+- `SessionStore` is no longer a singleton. `SessionStore.getInstance()` and `SessionStore.resetInstance()` have been removed. Construct instances with `new SessionStore()` and pass them explicitly to `registerChatTool`, `registerSessionsTool`, and `registerAllTools`.
+- `UsageTracker.getStats().activeSessions` is wired to the STDIO store via `UsageTracker.setSessionSource()`. In HTTP transport it reports `0` by design — a process-wide count across isolated stores would be both meaningless and a minor cross-tenant information leak.
+
+### Added
+- `SessionStore` isolation tests: independent instances, no shared state, no cross-store effects on `clear`/`delete`/`list`.
+- HTTP transport integration test (`src/transport-isolation.test.ts`) proving each `serverFactory` invocation produces a fresh store and that user-supplied `session_id` collisions across HTTP sessions do not merge data.
+
 ## [1.6.0] - 2026-03-17
 
 ### Added

@@ -107,7 +107,7 @@ Use `session_id` to maintain conversation context across requests:
 }
 ```
 
-Sessions are stored in memory for the lifetime of the MCP server process. They expire after SESSION_TTL_MINUTES (default: 30). Omit session_id for stateless single-turn requests.
+Sessions are stored in memory. In STDIO transport they live for the lifetime of the server process. In HTTP transport each MCP session gets its own isolated SessionStore, so session_id values are scoped to the MCP session that created them and are not visible to other connected HTTP clients. Sessions expire after SESSION_TTL_MINUTES (default: 30). Omit session_id for stateless single-turn requests.
 
 ### Thinking Mode
 
@@ -308,7 +308,7 @@ Endpoints:
 - `GET /mcp` — SSE stream (requires Mcp-Session-Id header)
 - `DELETE /mcp` — terminate session
 
-Each MCP session gets its own McpServer instance. DeepSeekClient is shared across sessions.
+Each MCP session gets its own McpServer instance AND its own SessionStore instance (session-store isolation added in 1.7.0 to prevent cross-session data exposure). DeepSeekClient is shared across sessions since it is a stateless API client.
 
 ## Docker
 
@@ -379,7 +379,7 @@ src/
 - @modelcontextprotocol/sdk for MCP protocol
 - OpenAI SDK v6 for API compatibility
 - Zod v4 for validation
-- Vitest for testing (253 tests)
+- Vitest for testing (265 tests, ~89% line coverage)
 - Node.js 18+
 
 ## Links

@@ -18,20 +18,20 @@ function createMockServer() {
 describe('deepseek_sessions tool', () => {
   let mockServer: ReturnType<typeof createMockServer>;
   let handler: Function;
+  let store: SessionStore;
 
   beforeEach(() => {
     resetConfig();
     process.env.DEEPSEEK_API_KEY = 'sk-test1234567890abcdef';
     loadConfig();
-    SessionStore.resetInstance();
+    store = new SessionStore();
     mockServer = createMockServer();
-    registerSessionsTool(mockServer as any);
+    registerSessionsTool(mockServer as any, store);
     handler = mockServer.tools.get('deepseek_sessions')!.handler;
   });
 
   afterEach(() => {
     resetConfig();
-    SessionStore.resetInstance();
   });
 
   it('should register with correct name', () => {
@@ -46,7 +46,6 @@ describe('deepseek_sessions tool', () => {
     });
 
     it('should list sessions with details', async () => {
-      const store = SessionStore.getInstance();
       store.create('session-a');
       store.addMessages('session-a', [{ role: 'user', content: 'hello' }]);
       store.create('session-b');
@@ -58,6 +57,18 @@ describe('deepseek_sessions tool', () => {
       expect(text).toContain('session-b');
       expect(text).toContain('Messages: 1');
     });
+
+    it('should only see sessions from its own store', async () => {
+      // Another store (simulating another HTTP session) has its own data
+      const otherStore = new SessionStore();
+      otherStore.create('other-session-x');
+      otherStore.addMessages('other-session-x', [
+        { role: 'user', content: 'SECRET from another client' },
+      ]);
+
+      const result = await handler({ action: 'list' });
+      expect(result.content[0].text).toBe('No active sessions.');
+    });
   });
 
   describe('delete action', () => {
@@ -68,7 +79,6 @@ describe('deepseek_sessions tool', () => {
     });
 
     it('should delete existing session', async () => {
-      const store = SessionStore.getInstance();
       store.create('to-delete');
 
       const result = await handler({ action: 'delete', session_id: 'to-delete' });
@@ -80,6 +90,16 @@ describe('deepseek_sessions tool', () => {
       const result = await handler({ action: 'delete', session_id: 'nonexistent' });
       expect(result.content[0].text).toContain('not found');
     });
+
+    it('should not delete sessions from another store', async () => {
+      const otherStore = new SessionStore();
+      otherStore.create('victim-session');
+
+      const result = await handler({ action: 'delete', session_id: 'victim-session' });
+      expect(result.content[0].text).toContain('not found');
+      // Other store must still have it
+      expect(otherStore.get('victim-session')).toBeDefined();
+    });
   });
 
   describe('clear action', () => {
@@ -89,7 +109,6 @@ describe('deepseek_sessions tool', () => {
     });
 
     it('should clear all sessions', async () => {
-      const store = SessionStore.getInstance();
       store.create('s1');
       store.create('s2');
       store.create('s3');
@@ -97,6 +116,17 @@ describe('deepseek_sessions tool', () => {
       const result = await handler({ action: 'clear' });
       expect(result.content[0].text).toBe('Cleared 3 session(s).');
       expect(store.list()).toHaveLength(0);
+    });
+
+    it('should not clear sessions from another store', async () => {
+      store.create('my-session');
+      const otherStore = new SessionStore();
+      otherStore.create('their-session-a');
+      otherStore.create('their-session-b');
+
+      await handler({ action: 'clear' });
+      expect(store.size).toBe(0);
+      expect(otherStore.size).toBe(2);
     });
   });
 });

@@ -21,27 +21,27 @@ function createMockClient() {
 
 describe('registerAllTools', () => {
   let mockServer: ReturnType<typeof createMockServer>;
+  let store: SessionStore;
 
   beforeEach(() => {
     resetConfig();
     process.env.DEEPSEEK_API_KEY = 'sk-test1234567890abcdef';
     loadConfig();
-    SessionStore.resetInstance();
     mockServer = createMockServer();
+    store = new SessionStore();
   });
 
   afterEach(() => {
     resetConfig();
-    SessionStore.resetInstance();
   });
 
   it('should register exactly 2 tools', () => {
-    registerAllTools(mockServer as any, createMockClient());
+    registerAllTools(mockServer as any, createMockClient(), store);
     expect(mockServer.registerTool).toHaveBeenCalledTimes(2);
   });
 
   it('should register deepseek_chat and deepseek_sessions', () => {
-    registerAllTools(mockServer as any, createMockClient());
+    registerAllTools(mockServer as any, createMockClient(), store);
     expect(mockServer.tools.has('deepseek_chat')).toBe(true);
     expect(mockServer.tools.has('deepseek_sessions')).toBe(true);
   });
