@@ -547,6 +547,95 @@ describe('tools/deepseek-chat', () => {
     expect(req.cache_miss_tokens).toBe(300);
   });
 
+  it('should report audit fields for a plain request (P5)', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [
+        { message: { content: 'Hi', tool_calls: undefined }, finish_reason: 'stop' },
+      ],
+      model: 'deepseek-v4-pro',
+      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+    });
+
+    const { DeepSeekClient } = await import('../deepseek-client.js');
+    const client = new DeepSeekClient();
+    registerChatTool(mockServer as any, client, store);
+
+    const handler = mockServer.tools.get('deepseek_chat')!.handler;
+    const result = await handler({
+      messages: [{ role: 'user', content: 'Hi' }],
+      model: 'deepseek-v4-pro',
+    });
+
+    const req = result.structuredContent.request;
+    expect(req.wire_model).toBe('deepseek-v4-pro');
+    expect(req.thinking).toBe(false);
+    expect(req.temperature).toBe(1.0); // default sampling temp in non-thinking mode
+    expect(req.fallback_used).toBe(false);
+    expect(result.structuredContent.fallback).toBeUndefined();
+  });
+
+  it('should report thinking=true and drop temperature under thinking mode (P5)', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [
+        { message: { content: 'Reasoned', tool_calls: undefined }, finish_reason: 'stop' },
+      ],
+      model: 'deepseek-v4-pro',
+      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+    });
+    const mockError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const { DeepSeekClient } = await import('../deepseek-client.js');
+    const client = new DeepSeekClient();
+    registerChatTool(mockServer as any, client, store);
+
+    const handler = mockServer.tools.get('deepseek_chat')!.handler;
+    const result = await handler({
+      messages: [{ role: 'user', content: 'Think' }],
+      model: 'deepseek-v4-pro',
+      thinking: { type: 'enabled' },
+      temperature: 0.5,
+    });
+
+    const req = result.structuredContent.request;
+    expect(req.thinking).toBe(true);
+    expect(req.temperature).toBeUndefined(); // ignored while thinking
+    mockError.mockRestore();
+  });
+
+  it('should surface a silent model fallback (P5)', async () => {
+    let call = 0;
+    mockCreate.mockImplementation(() => {
+      call++;
+      if (call === 1) return Promise.reject(new Error('429 rate limit'));
+      return Promise.resolve({
+        choices: [
+          { message: { content: 'from backup', tool_calls: undefined }, finish_reason: 'stop' },
+        ],
+        model: 'deepseek-v4-pro',
+        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+      });
+    });
+    const mockError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const { DeepSeekClient } = await import('../deepseek-client.js');
+    const client = new DeepSeekClient();
+    registerChatTool(mockServer as any, client, store);
+
+    const handler = mockServer.tools.get('deepseek_chat')!.handler;
+    const result = await handler({
+      messages: [{ role: 'user', content: 'Hi' }],
+      model: 'deepseek-v4-flash',
+    });
+
+    const req = result.structuredContent.request;
+    expect(req.fallback_used).toBe(true);
+    expect(req.wire_model).toBe('deepseek-v4-pro');
+    expect(result.structuredContent.fallback.originalModel).toBe('deepseek-v4-flash');
+    expect(result.structuredContent.fallback.fallbackModel).toBe('deepseek-v4-pro');
+    expect(result.content[0].text).toContain('Fallback:');
+    mockError.mockRestore();
+  });
+
   it('should show cache info in cost display', async () => {
     mockCreate.mockResolvedValue({
       choices: [

@@ -157,6 +157,10 @@ export function registerChatTool(
         // reassemble scattered siblings or scrape the human-readable text.
         request: z.object({
           model: z.string(),
+          wire_model: z.string(),
+          thinking: z.boolean(),
+          temperature: z.number().optional(),
+          fallback_used: z.boolean(),
           finish_reason: z.string(),
           prompt_tokens: z.number(),
           completion_tokens: z.number(),
@@ -165,6 +169,23 @@ export function registerChatTool(
           cache_miss_tokens: z.number(),
           cost_usd: z.number(),
         }),
+        // Present only when a model fallback fired (P5): surfaces the silent
+        // switch so a gate run can flag or discard it.
+        fallback: z
+          .object({
+            originalModel: z.string(),
+            fallbackModel: z.string(),
+            reason: z.string(),
+          })
+          .optional(),
+        // Raw effective request the client actually sent (P5 audit).
+        effective: z
+          .object({
+            model: z.string(),
+            thinking: z.boolean(),
+            temperature: z.number().optional(),
+          })
+          .optional(),
         finish_reason: z.string(),
         // Set only when json_mode was requested but the content could not be
         // recovered as valid JSON; carries the JSON.parse error message.
@@ -293,6 +314,12 @@ export function registerChatTool(
           response.usage.prompt_tokens - cacheHitTokens;
         const requestInfo = {
           model: response.model,
+          // Audit fields (P5): exactly what answered, so a gate can detect a
+          // silent fallback to a weaker model or a thinking-mode mismatch.
+          wire_model: response.effective?.model ?? response.model,
+          thinking: response.effective?.thinking ?? false,
+          temperature: response.effective?.temperature,
+          fallback_used: response.fallback !== undefined,
           finish_reason: response.finish_reason,
           prompt_tokens: response.usage.prompt_tokens,
           completion_tokens: response.usage.completion_tokens,
@@ -352,6 +379,9 @@ export function registerChatTool(
           responseText += `- **Cost:** ${formatCost(costBreakdown)}`;
           if (isReasonerRouted) {
             responseText += `\n- **Routed:** deepseek-reasoner -> deepseek-v4-flash + thinking`;
+          }
+          if (response.fallback) {
+            responseText += `\n- **Fallback:** ${response.fallback.originalModel} -> ${response.fallback.fallbackModel} (${response.fallback.reason})`;
           }
           if (response.tool_calls?.length) {
             responseText += `\n- **Tool Calls:** ${response.tool_calls.length}`;
