@@ -22,6 +22,7 @@ import type { ChatMessage, DeepSeekChatInput } from '../types.js';
 import { getErrorMessage, getTextContent } from '../types.js';
 import type { SessionStore } from '../session.js';
 import { UsageTracker } from '../usage-tracker.js';
+import { extractJson } from '../json-extract.js';
 
 /** Input type extended with session_id */
 interface DeepSeekChatInputWithSession extends DeepSeekChatInput {
@@ -151,7 +152,23 @@ export function registerChatTool(
           prompt_cache_hit_tokens: z.number().optional(),
           prompt_cache_miss_tokens: z.number().optional(),
         }),
+        // Self-contained per-request usage + cost summary (P3). Everything a
+        // consumer needs for cost accounting in one object, so it never has to
+        // reassemble scattered siblings or scrape the human-readable text.
+        request: z.object({
+          model: z.string(),
+          finish_reason: z.string(),
+          prompt_tokens: z.number(),
+          completion_tokens: z.number(),
+          total_tokens: z.number(),
+          cache_hit_tokens: z.number(),
+          cache_miss_tokens: z.number(),
+          cost_usd: z.number(),
+        }),
         finish_reason: z.string(),
+        // Set only when json_mode was requested but the content could not be
+        // recovered as valid JSON; carries the JSON.parse error message.
+        json_parse_error: z.string().optional(),
         tool_calls: z
           .array(
             z.object({
@@ -249,6 +266,42 @@ export function registerChatTool(
         // Calculate cost (model-aware pricing)
         const costBreakdown = calculateCost(response.usage, response.model);
 
+        // JSON mode (P1): recover a clean JSON value from content. Handles
+        // fenced/prefixed/trailing output that leaks in under thinking mode,
+        // where the API's own reasoning/content split isn't enough. Purely
+        // local — no extra API call — so temp=0 reproducibility is preserved.
+        let jsonParseError: string | undefined;
+        let effectiveContent = response.content;
+        if (validated.json_mode) {
+          const extracted = extractJson(response.content);
+          if (extracted.ok) {
+            effectiveContent = extracted.text;
+          } else {
+            jsonParseError = extracted.error;
+            console.error(
+              `[DeepSeek MCP] json_mode: could not recover valid JSON from content (${extracted.error})`
+            );
+          }
+        }
+
+        // Self-contained per-request usage + cost summary (P3). Cache split is
+        // derived the same way cost.ts does it: absent hit/miss fields mean the
+        // whole prompt was billed as a cache miss.
+        const cacheHitTokens = response.usage.prompt_cache_hit_tokens ?? 0;
+        const cacheMissTokens =
+          response.usage.prompt_cache_miss_tokens ??
+          response.usage.prompt_tokens - cacheHitTokens;
+        const requestInfo = {
+          model: response.model,
+          finish_reason: response.finish_reason,
+          prompt_tokens: response.usage.prompt_tokens,
+          completion_tokens: response.usage.completion_tokens,
+          total_tokens: response.usage.total_tokens,
+          cache_hit_tokens: cacheHitTokens,
+          cache_miss_tokens: cacheMissTokens,
+          cost_usd: parseFloat(costBreakdown.totalCost.toFixed(6)),
+        };
+
         // Update session with new messages and response
         if (validated.session_id) {
           const session = sessionStore.get(validated.session_id);
@@ -259,7 +312,7 @@ export function registerChatTool(
             sessionStore.addMessages(validated.session_id, [
               {
                 role: 'assistant',
-                content: response.content,
+                content: effectiveContent,
                 ...(response.tool_calls ? { tool_calls: response.tool_calls } : {}),
               },
             ]);
@@ -279,7 +332,7 @@ export function registerChatTool(
           responseText += `<thinking>\n${response.reasoning_content}\n</thinking>\n\n`;
         }
 
-        responseText += response.content;
+        responseText += effectiveContent;
 
         // Format tool calls if present
         if (response.tool_calls?.length) {
@@ -320,8 +373,11 @@ export function registerChatTool(
           ],
           structuredContent: {
             ...response,
+            content: effectiveContent,
+            request: requestInfo,
             ...(isReasonerRouted ? { routed_from: 'deepseek-reasoner' } : {}),
-            cost_usd: parseFloat(costBreakdown.totalCost.toFixed(6)),
+            cost_usd: requestInfo.cost_usd,
+            ...(jsonParseError ? { json_parse_error: jsonParseError } : {}),
             ...(validated.session_id ? { session_id: validated.session_id } : {}),
           } as unknown as Record<string, unknown>,
         };

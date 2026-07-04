@@ -388,6 +388,165 @@ describe('tools/deepseek-chat', () => {
     delete process.env.ENABLE_MULTIMODAL;
   });
 
+  it('should strip code fences from json_mode content (P1)', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: 'Here is the result:\n```json\n{"role":"core"}\n```',
+            tool_calls: undefined,
+          },
+          finish_reason: 'stop',
+        },
+      ],
+      model: 'deepseek-v4-pro',
+      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+    });
+
+    const { DeepSeekClient } = await import('../deepseek-client.js');
+    const client = new DeepSeekClient();
+    registerChatTool(mockServer as any, client, store);
+
+    const handler = mockServer.tools.get('deepseek_chat')!.handler;
+    const result = await handler({
+      messages: [{ role: 'user', content: 'Return json output' }],
+      model: 'deepseek-v4-pro',
+      json_mode: true,
+    });
+
+    // structuredContent.content is the recovered, directly-parseable JSON
+    expect(result.structuredContent.content).toBe('{"role":"core"}');
+    expect(JSON.parse(result.structuredContent.content)).toEqual({ role: 'core' });
+    expect(result.structuredContent.json_parse_error).toBeUndefined();
+  });
+
+  it('should surface json_parse_error when json_mode content has no JSON (P1)', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [
+        {
+          message: { content: 'I could not comply, sorry.', tool_calls: undefined },
+          finish_reason: 'stop',
+        },
+      ],
+      model: 'deepseek-v4-pro',
+      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+    });
+    const mockError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const { DeepSeekClient } = await import('../deepseek-client.js');
+    const client = new DeepSeekClient();
+    registerChatTool(mockServer as any, client, store);
+
+    const handler = mockServer.tools.get('deepseek_chat')!.handler;
+    const result = await handler({
+      messages: [{ role: 'user', content: 'Return json output' }],
+      model: 'deepseek-v4-pro',
+      json_mode: true,
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent.json_parse_error).toBeDefined();
+    // Raw content is preserved so the caller can inspect the refusal
+    expect(result.structuredContent.content).toContain('could not comply');
+    mockError.mockRestore();
+  });
+
+  it('should leave non-json_mode content untouched', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [
+        {
+          message: { content: '```json\n{"x":1}\n```', tool_calls: undefined },
+          finish_reason: 'stop',
+        },
+      ],
+      model: 'deepseek-v4-pro',
+      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+    });
+
+    const { DeepSeekClient } = await import('../deepseek-client.js');
+    const client = new DeepSeekClient();
+    registerChatTool(mockServer as any, client, store);
+
+    const handler = mockServer.tools.get('deepseek_chat')!.handler;
+    const result = await handler({
+      messages: [{ role: 'user', content: 'Show me json' }],
+      model: 'deepseek-v4-pro',
+      // json_mode NOT set — content must pass through verbatim
+    });
+
+    expect(result.structuredContent.content).toBe('```json\n{"x":1}\n```');
+    expect(result.structuredContent.json_parse_error).toBeUndefined();
+  });
+
+  it('should return a self-contained request usage object (P3)', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [
+        {
+          message: { content: 'Hi', tool_calls: undefined },
+          finish_reason: 'stop',
+        },
+      ],
+      model: 'deepseek-v4-pro',
+      usage: {
+        prompt_tokens: 1000,
+        completion_tokens: 500,
+        total_tokens: 1500,
+        prompt_cache_hit_tokens: 800,
+        prompt_cache_miss_tokens: 200,
+      },
+    });
+
+    const { DeepSeekClient } = await import('../deepseek-client.js');
+    const client = new DeepSeekClient();
+    registerChatTool(mockServer as any, client, store);
+
+    const handler = mockServer.tools.get('deepseek_chat')!.handler;
+    const result = await handler({
+      messages: [{ role: 'user', content: 'Hi' }],
+      model: 'deepseek-v4-pro',
+    });
+
+    const req = result.structuredContent.request;
+    expect(req).toBeDefined();
+    expect(req.model).toBe('deepseek-v4-pro');
+    expect(req.finish_reason).toBe('stop');
+    expect(req.prompt_tokens).toBe(1000);
+    expect(req.completion_tokens).toBe(500);
+    expect(req.total_tokens).toBe(1500);
+    expect(req.cache_hit_tokens).toBe(800);
+    expect(req.cache_miss_tokens).toBe(200);
+    expect(typeof req.cost_usd).toBe('number');
+    expect(req.cost_usd).toBeGreaterThan(0);
+  });
+
+  it('should derive cache split when API omits cache fields (P3)', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [
+        {
+          message: { content: 'Hi', tool_calls: undefined },
+          finish_reason: 'stop',
+        },
+      ],
+      model: 'deepseek-v4-flash',
+      usage: { prompt_tokens: 300, completion_tokens: 50, total_tokens: 350 },
+    });
+
+    const { DeepSeekClient } = await import('../deepseek-client.js');
+    const client = new DeepSeekClient();
+    registerChatTool(mockServer as any, client, store);
+
+    const handler = mockServer.tools.get('deepseek_chat')!.handler;
+    const result = await handler({
+      messages: [{ role: 'user', content: 'Hi' }],
+      model: 'deepseek-v4-flash',
+    });
+
+    const req = result.structuredContent.request;
+    // No cache fields from API -> whole prompt billed as miss, matching cost.ts
+    expect(req.cache_hit_tokens).toBe(0);
+    expect(req.cache_miss_tokens).toBe(300);
+  });
+
   it('should show cache info in cost display', async () => {
     mockCreate.mockResolvedValue({
       choices: [
