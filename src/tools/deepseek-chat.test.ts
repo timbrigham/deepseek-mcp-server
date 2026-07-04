@@ -636,6 +636,116 @@ describe('tools/deepseek-chat', () => {
     mockError.mockRestore();
   });
 
+  const P2_SCHEMA = {
+    type: 'object',
+    properties: {
+      role: { type: 'string', enum: ['core', 'face', 'scaffold'] },
+      confidence: { type: 'number' },
+    },
+    required: ['role', 'confidence'],
+    additionalProperties: false,
+  };
+
+  function chatResult(content: string, model = 'deepseek-v4-pro') {
+    return {
+      choices: [{ message: { content, tool_calls: undefined }, finish_reason: 'stop' }],
+      model,
+      usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 },
+    };
+  }
+
+  it('should validate response_schema and pass on first try (P2)', async () => {
+    mockCreate.mockResolvedValue(chatResult('{"role":"core","confidence":0.9}'));
+
+    const { DeepSeekClient } = await import('../deepseek-client.js');
+    const client = new DeepSeekClient();
+    registerChatTool(mockServer as any, client, store);
+
+    const handler = mockServer.tools.get('deepseek_chat')!.handler;
+    const result = await handler({
+      messages: [{ role: 'user', content: 'Classify as json' }],
+      model: 'deepseek-v4-pro',
+      response_schema: P2_SCHEMA,
+    });
+
+    expect(result.structuredContent.schema).toEqual({ valid: true, attempts: 0 });
+    expect(JSON.parse(result.structuredContent.content)).toEqual({
+      role: 'core',
+      confidence: 0.9,
+    });
+    // response_schema implies JSON output even though json_mode was not set
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ response_format: { type: 'json_object' } })
+    );
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it('should repair-retry until the output satisfies the schema (P2)', async () => {
+    mockCreate
+      .mockResolvedValueOnce(chatResult('{"role":"core"}')) // missing confidence
+      .mockResolvedValueOnce(chatResult('{"role":"core","confidence":0.8}'));
+    const mockError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const { DeepSeekClient } = await import('../deepseek-client.js');
+    const client = new DeepSeekClient();
+    registerChatTool(mockServer as any, client, store);
+
+    const handler = mockServer.tools.get('deepseek_chat')!.handler;
+    const result = await handler({
+      messages: [{ role: 'user', content: 'Classify as json' }],
+      model: 'deepseek-v4-pro',
+      response_schema: P2_SCHEMA,
+    });
+
+    expect(result.structuredContent.schema).toEqual({ valid: true, attempts: 1 });
+    expect(JSON.parse(result.structuredContent.content).confidence).toBe(0.8);
+    expect(mockCreate).toHaveBeenCalledTimes(2);
+    // Cost is summed across both attempts
+    expect(result.structuredContent.request.cost_usd).toBeGreaterThan(0);
+    mockError.mockRestore();
+  });
+
+  it('should give up after RESPONSE_SCHEMA_MAX_RETRIES and report invalid (P2)', async () => {
+    mockCreate.mockResolvedValue(chatResult('{"role":"core"}')); // always missing confidence
+    const mockError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const { DeepSeekClient } = await import('../deepseek-client.js');
+    const client = new DeepSeekClient();
+    registerChatTool(mockServer as any, client, store);
+
+    const handler = mockServer.tools.get('deepseek_chat')!.handler;
+    const result = await handler({
+      messages: [{ role: 'user', content: 'Classify as json' }],
+      model: 'deepseek-v4-pro',
+      response_schema: P2_SCHEMA,
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent.schema.valid).toBe(false);
+    expect(result.structuredContent.schema.attempts).toBe(2); // default max retries
+    expect(result.structuredContent.schema.error).toContain('confidence');
+    expect(mockCreate).toHaveBeenCalledTimes(3); // initial + 2 retries
+    mockError.mockRestore();
+  });
+
+  it('should not retry when response_schema is absent (json_mode only)', async () => {
+    mockCreate.mockResolvedValue(chatResult('```json\n{"role":"core"}\n```'));
+
+    const { DeepSeekClient } = await import('../deepseek-client.js');
+    const client = new DeepSeekClient();
+    registerChatTool(mockServer as any, client, store);
+
+    const handler = mockServer.tools.get('deepseek_chat')!.handler;
+    const result = await handler({
+      messages: [{ role: 'user', content: 'Return json' }],
+      model: 'deepseek-v4-pro',
+      json_mode: true,
+    });
+
+    expect(result.structuredContent.schema).toBeUndefined();
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+  });
+
   it('should show cache info in cost display', async () => {
     mockCreate.mockResolvedValue({
       choices: [

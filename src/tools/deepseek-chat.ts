@@ -17,12 +17,16 @@ import {
   ReasoningEffortSchema,
   ContentSchema,
 } from '../schemas.js';
-import type { DeepSeekClient } from '../deepseek-client.js';
+import type {
+  DeepSeekClient,
+  ChatCompletionResponseWithFallback,
+} from '../deepseek-client.js';
 import type { ChatMessage, DeepSeekChatInput } from '../types.js';
 import { getErrorMessage, getTextContent } from '../types.js';
 import type { SessionStore } from '../session.js';
 import { UsageTracker } from '../usage-tracker.js';
 import { extractJson } from '../json-extract.js';
+import { validateAgainstSchema, InvalidSchemaError } from '../schema-validate.js';
 
 /** Input type extended with session_id */
 interface DeepSeekChatInputWithSession extends DeepSeekChatInput {
@@ -133,6 +137,12 @@ export function registerChatTool(
           .describe(
             'Enable JSON output mode. The model will output valid JSON. Include the word "json" in your prompt for best results. Supported by both models.'
           ),
+        response_schema: z
+          .record(z.string(), z.unknown())
+          .optional()
+          .describe(
+            'JSON Schema to validate the model output against. Implies JSON output mode. The server validates the parsed result and, on failure, issues up to RESPONSE_SCHEMA_MAX_RETRIES repair retries (feeding the validation error back). The returned content is the first schema-valid object, or the last attempt with schema.valid=false and schema.error set.'
+          ),
         session_id: z
           .string()
           .optional()
@@ -190,6 +200,15 @@ export function registerChatTool(
         // Set only when json_mode was requested but the content could not be
         // recovered as valid JSON; carries the JSON.parse error message.
         json_parse_error: z.string().optional(),
+        // Present only when response_schema was supplied (P2): whether the
+        // output validated, how many attempts it took, and the last error.
+        schema: z
+          .object({
+            valid: z.boolean(),
+            attempts: z.number(),
+            error: z.string().optional(),
+          })
+          .optional(),
         tool_calls: z
           .array(
             z.object({
@@ -226,14 +245,18 @@ export function registerChatTool(
           }
         }
 
+        // response_schema implies JSON output (P2), so treat both as "want JSON".
+        const wantJson =
+          validated.json_mode === true || validated.response_schema !== undefined;
+
         // JSON mode guard: warn if "json" word is not in any message content
-        if (validated.json_mode) {
+        if (wantJson) {
           const hasJsonWord = validated.messages.some((m) =>
             getTextContent(m.content).toLowerCase().includes('json')
           );
           if (!hasJsonWord) {
             console.error(
-              '[DeepSeek MCP] Warning: json_mode enabled but no "json" word found in messages. Results may be unreliable.'
+              '[DeepSeek MCP] Warning: JSON output requested but no "json" word found in messages. Results may be unreliable.'
             );
           }
         }
@@ -260,48 +283,106 @@ export function registerChatTool(
           `[DeepSeek MCP] Request: model=${validated.model}, messages=${allMessages.length}, stream=${validated.stream}${validated.tools ? `, tools=${validated.tools.length}` : ''}${validated.thinking ? `, thinking=${validated.thinking.type}` : ''}${validated.json_mode ? ', json_mode=true' : ''}${validated.session_id ? `, session=${validated.session_id}` : ''}`
         );
 
-        // Build params for client
+        // Build params for client (messages are supplied per-call so the
+        // response_schema repair loop can extend the conversation).
         const clientParams = {
           model: validated.model,
-          messages: allMessages,
           temperature: validated.temperature,
           max_tokens: validated.max_tokens,
           tools: validated.tools,
           tool_choice: validated.tool_choice,
           thinking: validated.thinking,
           reasoning_effort: validated.reasoning_effort,
-          response_format: validated.json_mode
-            ? ({ type: 'json_object' } as const)
-            : undefined,
+          response_format: wantJson ? ({ type: 'json_object' } as const) : undefined,
         };
 
-        // Call appropriate method based on stream parameter
-        const response = validated.stream
-          ? await client.createStreamingChatCompletion(clientParams)
-          : await client.createChatCompletion(clientParams);
+        const callOnce = (messages: ChatMessage[]) =>
+          validated.stream
+            ? client.createStreamingChatCompletion({ ...clientParams, messages })
+            : client.createChatCompletion({ ...clientParams, messages });
 
+        // Cost is accumulated across attempts; each attempt is tracked globally
+        // and costBreakdown holds the final attempt (used for cache display).
+        let totalCostUsd = 0;
+        let costBreakdown = calculateCost(
+          { prompt_tokens: 0, completion_tokens: 0 },
+          validated.model
+        );
+        const trackAttempt = (resp: ChatCompletionResponseWithFallback) => {
+          costBreakdown = calculateCost(resp.usage, resp.model);
+          totalCostUsd += costBreakdown.totalCost;
+          UsageTracker.getInstance().trackRequest(resp.usage, costBreakdown.totalCost);
+        };
+
+        let convo = allMessages;
+        let response = await callOnce(convo);
         console.error(
           `[DeepSeek MCP] Response: tokens=${response.usage.total_tokens}, finish_reason=${response.finish_reason}${response.tool_calls ? `, tool_calls=${response.tool_calls.length}` : ''}`
         );
+        trackAttempt(response);
 
-        // Calculate cost (model-aware pricing)
-        const costBreakdown = calculateCost(response.usage, response.model);
-
-        // JSON mode (P1): recover a clean JSON value from content. Handles
-        // fenced/prefixed/trailing output that leaks in under thinking mode,
-        // where the API's own reasoning/content split isn't enough. Purely
-        // local — no extra API call — so temp=0 reproducibility is preserved.
+        // JSON handling (P1) + optional schema validation with repair retries (P2).
+        // P1 recovery is purely local (no extra call). A repair retry only fires
+        // when response_schema is set AND validation fails AND retries remain, so
+        // plain json_mode keeps its single-call, temp=0-reproducible behavior.
         let jsonParseError: string | undefined;
         let effectiveContent = response.content;
-        if (validated.json_mode) {
-          const extracted = extractJson(response.content);
-          if (extracted.ok) {
-            effectiveContent = extracted.text;
-          } else {
-            jsonParseError = extracted.error;
+        let schemaResult:
+          | { valid: boolean; attempts: number; error?: string }
+          | undefined;
+        const schema = validated.response_schema;
+        const maxRetries = getConfig().responseSchemaMaxRetries;
+
+        if (wantJson) {
+          let attempt = 0;
+          // eslint-disable-next-line no-constant-condition
+          while (true) {
+            const extracted = extractJson(response.content);
+
+            if (extracted.ok) {
+              effectiveContent = extracted.text;
+              jsonParseError = undefined;
+              if (!schema) break; // json_mode only — no shape check
+              const v = validateAgainstSchema(extracted.value, schema);
+              if (v.valid) {
+                schemaResult = { valid: true, attempts: attempt };
+                break;
+              }
+              schemaResult = { valid: false, attempts: attempt, error: v.error };
+            } else {
+              // Could not recover any JSON; keep the raw content for inspection.
+              effectiveContent = response.content;
+              jsonParseError = extracted.error;
+              if (schema) {
+                schemaResult = { valid: false, attempts: attempt, error: extracted.error };
+              }
+            }
+
+            if (!schema || attempt >= maxRetries) {
+              if (jsonParseError) {
+                console.error(
+                  `[DeepSeek MCP] json_mode: could not recover valid JSON from content (${jsonParseError})`
+                );
+              }
+              break;
+            }
+
+            // Repair retry: show the model its bad output + the failure reason.
+            attempt++;
+            const errDetail = jsonParseError ?? schemaResult?.error ?? 'invalid output';
+            convo = [
+              ...convo,
+              { role: 'assistant' as const, content: response.content },
+              {
+                role: 'user' as const,
+                content: `Your previous response was invalid: ${errDetail}. Return ONLY a corrected JSON object that satisfies the required schema, with no extra text.`,
+              },
+            ];
             console.error(
-              `[DeepSeek MCP] json_mode: could not recover valid JSON from content (${extracted.error})`
+              `[DeepSeek MCP] response_schema: attempt ${attempt} repair (${errDetail})`
             );
+            response = await callOnce(convo);
+            trackAttempt(response);
           }
         }
 
@@ -326,7 +407,9 @@ export function registerChatTool(
           total_tokens: response.usage.total_tokens,
           cache_hit_tokens: cacheHitTokens,
           cache_miss_tokens: cacheMissTokens,
-          cost_usd: parseFloat(costBreakdown.totalCost.toFixed(6)),
+          // Summed across all attempts (repair retries included), so a gate's
+          // per-item cost accounting stays honest when a retry fires.
+          cost_usd: parseFloat(totalCostUsd.toFixed(6)),
         };
 
         // Update session with new messages and response
@@ -343,13 +426,12 @@ export function registerChatTool(
                 ...(response.tool_calls ? { tool_calls: response.tool_calls } : {}),
               },
             ]);
-            session.totalCost += costBreakdown.totalCost;
+            session.totalCost += totalCostUsd;
             session.requestCount++;
           }
         }
 
-        // Track usage globally
-        UsageTracker.getInstance().trackRequest(response.usage, costBreakdown.totalCost);
+        // (Usage is tracked per-attempt above via trackAttempt.)
 
         // Format response
         let responseText = '';
@@ -386,6 +468,12 @@ export function registerChatTool(
           if (response.tool_calls?.length) {
             responseText += `\n- **Tool Calls:** ${response.tool_calls.length}`;
           }
+          if (schemaResult) {
+            responseText += `\n- **Schema:** ${schemaResult.valid ? 'valid' : 'INVALID'} (${schemaResult.attempts} repair ${schemaResult.attempts === 1 ? 'retry' : 'retries'})`;
+            if (!schemaResult.valid && schemaResult.error) {
+              responseText += ` — ${schemaResult.error}`;
+            }
+          }
           if (validated.session_id) {
             const session = sessionStore.get(validated.session_id);
             if (session) {
@@ -408,6 +496,7 @@ export function registerChatTool(
             ...(isReasonerRouted ? { routed_from: 'deepseek-reasoner' } : {}),
             cost_usd: requestInfo.cost_usd,
             ...(jsonParseError ? { json_parse_error: jsonParseError } : {}),
+            ...(schemaResult ? { schema: schemaResult } : {}),
             ...(validated.session_id ? { session_id: validated.session_id } : {}),
           } as unknown as Record<string, unknown>,
         };

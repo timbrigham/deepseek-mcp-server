@@ -179,6 +179,7 @@ export interface DeepSeekChatInput {
   thinking?: { type: 'enabled' | 'disabled' };
   reasoning_effort?: 'high' | 'max';
   json_mode?: boolean;
+  response_schema?: Record<string, unknown>;
 }
 
 // ─── FIM (Fill-in-the-Middle) Types ────────────────────────────
