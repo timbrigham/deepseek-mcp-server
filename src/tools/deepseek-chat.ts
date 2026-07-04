@@ -301,9 +301,18 @@ export function registerChatTool(
             ? client.createStreamingChatCompletion({ ...clientParams, messages })
             : client.createChatCompletion({ ...clientParams, messages });
 
-        // Cost is accumulated across attempts; each attempt is tracked globally
-        // and costBreakdown holds the final attempt (used for cache display).
+        // Cost and tokens are accumulated across attempts so the `request`
+        // summary reconciles internally (cumulative tokens alongside cumulative
+        // cost). Each attempt is tracked globally; costBreakdown holds the final
+        // attempt (used for the human-readable cache display).
         let totalCostUsd = 0;
+        const totalUsage = {
+          prompt_tokens: 0,
+          completion_tokens: 0,
+          total_tokens: 0,
+          cache_hit_tokens: 0,
+          cache_miss_tokens: 0,
+        };
         let costBreakdown = calculateCost(
           { prompt_tokens: 0, completion_tokens: 0 },
           validated.model
@@ -311,6 +320,16 @@ export function registerChatTool(
         const trackAttempt = (resp: ChatCompletionResponseWithFallback) => {
           costBreakdown = calculateCost(resp.usage, resp.model);
           totalCostUsd += costBreakdown.totalCost;
+          // Cache split derived the same way cost.ts bills: absent hit/miss
+          // fields mean the whole prompt was a cache miss.
+          const hit = resp.usage.prompt_cache_hit_tokens ?? 0;
+          const miss =
+            resp.usage.prompt_cache_miss_tokens ?? resp.usage.prompt_tokens - hit;
+          totalUsage.prompt_tokens += resp.usage.prompt_tokens;
+          totalUsage.completion_tokens += resp.usage.completion_tokens;
+          totalUsage.total_tokens += resp.usage.total_tokens;
+          totalUsage.cache_hit_tokens += hit;
+          totalUsage.cache_miss_tokens += miss;
           UsageTracker.getInstance().trackRequest(resp.usage, costBreakdown.totalCost);
         };
 
@@ -386,29 +405,24 @@ export function registerChatTool(
           }
         }
 
-        // Self-contained per-request usage + cost summary (P3). Cache split is
-        // derived the same way cost.ts does it: absent hit/miss fields mean the
-        // whole prompt was billed as a cache miss.
-        const cacheHitTokens = response.usage.prompt_cache_hit_tokens ?? 0;
-        const cacheMissTokens =
-          response.usage.prompt_cache_miss_tokens ??
-          response.usage.prompt_tokens - cacheHitTokens;
+        // Self-contained per-request usage + cost summary (P3). Tokens and cost
+        // both aggregate across any repair attempts and reconcile internally, so
+        // per-item accounting stays honest when a retry fires. (Top-level `usage`
+        // from the spread below reflects the final API response only.) Audit
+        // fields (P5) expose exactly what answered, so a gate can detect a silent
+        // fallback to a weaker model or a thinking-mode mismatch.
         const requestInfo = {
           model: response.model,
-          // Audit fields (P5): exactly what answered, so a gate can detect a
-          // silent fallback to a weaker model or a thinking-mode mismatch.
           wire_model: response.effective?.model ?? response.model,
           thinking: response.effective?.thinking ?? false,
           temperature: response.effective?.temperature,
           fallback_used: response.fallback !== undefined,
           finish_reason: response.finish_reason,
-          prompt_tokens: response.usage.prompt_tokens,
-          completion_tokens: response.usage.completion_tokens,
-          total_tokens: response.usage.total_tokens,
-          cache_hit_tokens: cacheHitTokens,
-          cache_miss_tokens: cacheMissTokens,
-          // Summed across all attempts (repair retries included), so a gate's
-          // per-item cost accounting stays honest when a retry fires.
+          prompt_tokens: totalUsage.prompt_tokens,
+          completion_tokens: totalUsage.completion_tokens,
+          total_tokens: totalUsage.total_tokens,
+          cache_hit_tokens: totalUsage.cache_hit_tokens,
+          cache_miss_tokens: totalUsage.cache_miss_tokens,
           cost_usd: parseFloat(totalCostUsd.toFixed(6)),
         };
 

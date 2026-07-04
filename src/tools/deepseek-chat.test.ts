@@ -700,8 +700,15 @@ describe('tools/deepseek-chat', () => {
     expect(result.structuredContent.schema).toEqual({ valid: true, attempts: 1 });
     expect(JSON.parse(result.structuredContent.content).confidence).toBe(0.8);
     expect(mockCreate).toHaveBeenCalledTimes(2);
-    // Cost is summed across both attempts
-    expect(result.structuredContent.request.cost_usd).toBeGreaterThan(0);
+    // request aggregates across both attempts and reconciles internally:
+    // each attempt used 100 prompt + 20 completion (120 total) tokens.
+    const req = result.structuredContent.request;
+    expect(req.prompt_tokens).toBe(200);
+    expect(req.completion_tokens).toBe(40);
+    expect(req.total_tokens).toBe(240);
+    expect(req.cost_usd).toBeGreaterThan(0);
+    // top-level usage still reflects the final API response only
+    expect(result.structuredContent.usage.total_tokens).toBe(120);
     mockError.mockRestore();
   });
 
