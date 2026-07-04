@@ -1,6 +1,6 @@
 {
   "name": "@arikusi/deepseek-mcp-server",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "mcpName": "io.github.arikusi/deepseek",
   "description": "MCP Server for DeepSeek API integration - enables Claude Code to use DeepSeek Chat and Reasoner models",
   "main": "dist/index.js",
@@ -63,6 +63,7 @@
   ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "ajv": "^8.18.0",
     "openai": "^6.27.0",
     "zod": "^4.3.6"
   },
